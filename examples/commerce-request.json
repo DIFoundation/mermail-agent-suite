@@ -1,0 +1,10 @@
+{
+  "service": "web research",
+  "recipient": "research-service.example",
+  "amount": "0.10",
+  "currency": "USDC",
+  "purpose": "Return a cited five-source market snapshot",
+  "network": "service-defined",
+  "sentinelDecision": "clear",
+  "userApproved": false
+}
