@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 
 type Decision = "clear" | "review" | "block";
 
-interface Message {
+type Message = {
   id: string;
   from: {
     name?: string;
@@ -22,21 +22,32 @@ interface Message {
       level: string;
       evidence: string;
     }>;
-    reasons: string[];
     requiresHumanApproval: boolean;
   };
-}
-
-const decisionLabel: Record<Decision, string> = {
-  clear: "CLEAR",
-  review: "REVIEW",
-  block: "BLOCK",
 };
 
-function DecisionBadge({ decision }: { decision: Decision }) {
+type Workflow = {
+  request: {
+    id: string;
+    service: string;
+    recipient: string;
+    amount: string;
+    currency: string;
+    purpose: string;
+    sourceMessageId: string;
+    userApproved: boolean;
+  };
+  status: string;
+  quote?: {
+    quoteId: string;
+    expiresAt: string;
+  };
+};
+
+function Badge({ decision }: { decision: Decision }) {
   return (
     <span className={`badge badge-${decision}`}>
-      {decisionLabel[decision]}
+      {decision.toUpperCase()}
     </span>
   );
 }
@@ -44,7 +55,11 @@ function DecisionBadge({ decision }: { decision: Decision }) {
 export default function Home() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [selected, setSelected] = useState<Message | null>(null);
+  const [workflow, setWorkflow] = useState<Workflow | null>(null);
   const [loading, setLoading] = useState(true);
+  const [creating, setCreating] = useState(false);
+  const [approving, setApproving] = useState(false);
+  const [notice, setNotice] = useState("");
 
   useEffect(() => {
     fetch("/api/inbox")
@@ -56,10 +71,101 @@ export default function Home() {
       .finally(() => setLoading(false));
   }, []);
 
+  async function createCommerceRequest() {
+    if (!selected) return;
+
+    setCreating(true);
+    setNotice("");
+
+    try {
+      const response = await fetch("/api/workflows", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          sourceMessageId: selected.id,
+          service: "External agent service",
+          recipient: "service.example",
+          amount: "10.00",
+          currency: "USDC",
+          purpose: selected.subject,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error);
+      }
+
+      setWorkflow(data);
+      setNotice("Commerce request created. Human approval required.");
+    } catch (error) {
+      setNotice(
+        error instanceof Error
+          ? error.message
+          : "Unable to create request.",
+      );
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  async function approve() {
+    if (!workflow) return;
+
+    setApproving(true);
+    setNotice("");
+
+    try {
+      const response = await fetch(
+        `/api/workflows/${workflow.request.id}/approve`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            recipient: workflow.request.recipient,
+            amount: workflow.request.amount,
+            currency: workflow.request.currency,
+            purpose: workflow.request.purpose,
+          }),
+        },
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error);
+      }
+
+      setWorkflow(data);
+      setNotice(
+        "Approved. No payment has been executed.",
+      );
+    } catch (error) {
+      setNotice(
+        error instanceof Error
+          ? error.message
+          : "Approval failed.",
+      );
+    } finally {
+      setApproving(false);
+    }
+  }
+
   const counts = {
-    clear: messages.filter((m) => m.security.decision === "clear").length,
-    review: messages.filter((m) => m.security.decision === "review").length,
-    block: messages.filter((m) => m.security.decision === "block").length,
+    clear: messages.filter(
+      (m) => m.security.decision === "clear",
+    ).length,
+    review: messages.filter(
+      (m) => m.security.decision === "review",
+    ).length,
+    block: messages.filter(
+      (m) => m.security.decision === "block",
+    ).length,
   };
 
   return (
@@ -101,6 +207,8 @@ export default function Home() {
         </div>
       </section>
 
+      {notice && <div className="notice">{notice}</div>}
+
       <section className="workspace">
         <aside className="inbox">
           <div className="section-title">
@@ -117,13 +225,18 @@ export default function Home() {
                 className={`message ${
                   selected?.id === message.id ? "selected" : ""
                 }`}
-                onClick={() => setSelected(message)}
+                onClick={() => {
+                  setSelected(message);
+                  setWorkflow(null);
+                  setNotice("");
+                }}
               >
                 <div className="message-top">
                   <strong>
                     {message.from.name || message.from.email}
                   </strong>
-                  <DecisionBadge
+
+                  <Badge
                     decision={message.security.decision}
                   />
                 </div>
@@ -147,16 +260,18 @@ export default function Home() {
             <>
               <div className="detail-header">
                 <div>
-                  <p className="eyebrow">SECURITY ANALYSIS</p>
+                  <p className="eyebrow">
+                    SECURITY ANALYSIS
+                  </p>
                   <h2>{selected.subject}</h2>
                   <p className="sender">
-                    From {selected.from.name || selected.from.email}
-                    {" · "}
-                    {new Date(selected.receivedAt).toLocaleString()}
+                    From{" "}
+                    {selected.from.name ||
+                      selected.from.email}
                   </p>
                 </div>
 
-                <DecisionBadge
+                <Badge
                   decision={selected.security.decision}
                 />
               </div>
@@ -164,7 +279,9 @@ export default function Home() {
               <div className="risk">
                 <div>
                   <span>Risk score</span>
-                  <strong>{selected.security.riskScore}/100</strong>
+                  <strong>
+                    {selected.security.riskScore}/100
+                  </strong>
                 </div>
 
                 <div className="risk-bar">
@@ -190,7 +307,10 @@ export default function Home() {
                   </p>
                 ) : (
                   selected.security.signals.map((signal) => (
-                    <div className="signal" key={signal.code}>
+                    <div
+                      className="signal"
+                      key={signal.code}
+                    >
                       <div>
                         <strong>{signal.label}</strong>
                         <span>{signal.level}</span>
@@ -201,16 +321,121 @@ export default function Home() {
                 )}
               </div>
 
-              <div className="authorization">
-                <span>
-                  Human approval required
-                </span>
-                <strong>
-                  {selected.security.requiresHumanApproval
-                    ? "YES"
-                    : "NO"}
-                </strong>
-              </div>
+              {selected.security.decision === "clear" && (
+                <div className="commerce">
+                  {!workflow ? (
+                    <>
+                      <div>
+                        <h3>
+                          Commerce Bridge
+                        </h3>
+                        <p>
+                          This message is cleared for
+                          consideration. Creating a
+                          commerce request does not
+                          authorize payment.
+                        </p>
+                      </div>
+
+                      <button
+                        className="primary"
+                        onClick={createCommerceRequest}
+                        disabled={creating}
+                      >
+                        {creating
+                          ? "Creating..."
+                          : "Create Commerce Request"}
+                      </button>
+                    </>
+                  ) : (
+                    <div className="approval">
+                      <div className="approval-header">
+                        <div>
+                          <p className="eyebrow">
+                            HUMAN AUTHORIZATION
+                          </p>
+                          <h3>
+                            {workflow.status}
+                          </h3>
+                        </div>
+
+                        <span className="approval-lock">
+                          🔒
+                        </span>
+                      </div>
+
+                      <div className="approval-grid">
+                        <div>
+                          <span>Service</span>
+                          <strong>
+                            {workflow.request.service}
+                          </strong>
+                        </div>
+
+                        <div>
+                          <span>Recipient</span>
+                          <strong>
+                            {workflow.request.recipient}
+                          </strong>
+                        </div>
+
+                        <div>
+                          <span>Amount</span>
+                          <strong>
+                            {workflow.request.amount}{" "}
+                            {workflow.request.currency}
+                          </strong>
+                        </div>
+
+                        <div>
+                          <span>Purpose</span>
+                          <strong>
+                            {workflow.request.purpose}
+                          </strong>
+                        </div>
+                      </div>
+
+                      {workflow.status ===
+                        "APPROVAL_REQUIRED" && (
+                        <div className="approval-actions">
+                          <button
+                            className="danger"
+                            onClick={() => {
+                              setWorkflow(null);
+                              setNotice(
+                                "Commerce request rejected.",
+                              );
+                            }}
+                          >
+                            Reject
+                          </button>
+
+                          <button
+                            className="primary"
+                            onClick={approve}
+                            disabled={approving}
+                          >
+                            {approving
+                              ? "Approving..."
+                              : "Approve Request"}
+                          </button>
+                        </div>
+                      )}
+
+                      {workflow.status === "APPROVED" && (
+                        <div className="approved">
+                          ✓ Human approval recorded.
+                          <br />
+                          <small>
+                            Payment execution remains
+                            disabled in this milestone.
+                          </small>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
             </>
           )}
         </article>
