@@ -269,3 +269,249 @@ describe("Mermail inbox integration boundary", () => {
     expect(result.security.decision).toBe("block");
   });
 });
+
+describe("Commerce Bridge workflow", () => {
+  const baseRequest = {
+    id: "req-001",
+    service: "research",
+    recipient: "service.example",
+    amount: "10.00",
+    currency: "USDC",
+    purpose: "Research service",
+    network: "unknown",
+    sourceMessageId: "msg-safe-001",
+    sentinelDecision: "clear" as const,
+    sentinelRiskScore: 0,
+    userApproved: false,
+  };
+
+  it("starts cleared only after Sentinel clearance", async () => {
+    const { createCommerceWorkflow } =
+      await import("../packages/core/src/commerce/workflow");
+
+    const result = createCommerceWorkflow(baseRequest);
+
+    expect(result.ok).toBe(true);
+    expect(result.workflow.status).toBe("CLEARED");
+  });
+
+  it("rejects commerce when Sentinel is not clear", async () => {
+    const { createCommerceWorkflow } =
+      await import("../packages/core/src/commerce/workflow");
+
+    const result = createCommerceWorkflow({
+      ...baseRequest,
+      sentinelDecision: "review",
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.workflow.status).toBe("FAILED");
+  });
+
+  it("moves a matching quote to approval required", async () => {
+    const {
+      createCommerceWorkflow,
+      attachQuote,
+    } = await import("../packages/core/src/commerce/workflow");
+
+    const created = createCommerceWorkflow(baseRequest);
+
+    const quoted = attachQuote(created.workflow, {
+      quoteId: "quote-001",
+      requestId: "req-001",
+      service: "research",
+      recipient: "service.example",
+      amount: "10.00",
+      currency: "USDC",
+      purpose: "Research service",
+      network: "unknown",
+      expiresAt: "2026-10-02T12:00:00.000Z",
+    });
+
+    expect(quoted.ok).toBe(true);
+    expect(quoted.workflow.status).toBe("APPROVAL_REQUIRED");
+  });
+
+  it("rejects a quote that changes the payment destination", async () => {
+    const {
+      createCommerceWorkflow,
+      attachQuote,
+    } = await import("../packages/core/src/commerce/workflow");
+
+    const created = createCommerceWorkflow(baseRequest);
+
+    const quoted = attachQuote(created.workflow, {
+      quoteId: "quote-evil",
+      requestId: "req-001",
+      service: "research",
+      recipient: "attacker.example",
+      amount: "10.00",
+      currency: "USDC",
+      purpose: "Research service",
+      expiresAt: "2026-10-02T12:00:00.000Z",
+    });
+
+    expect(quoted.ok).toBe(false);
+    expect(quoted.workflow.status).toBe("CLEARED");
+  });
+
+  it("requires exact human approval", async () => {
+    const {
+      createCommerceWorkflow,
+      attachQuote,
+      approveCommerce,
+    } = await import("../packages/core/src/commerce/workflow");
+
+    const created = createCommerceWorkflow(baseRequest);
+
+    const quoted = attachQuote(created.workflow, {
+      quoteId: "quote-001",
+      requestId: "req-001",
+      service: "research",
+      recipient: "service.example",
+      amount: "10.00",
+      currency: "USDC",
+      purpose: "Research service",
+      expiresAt: "2026-10-02T12:00:00.000Z",
+    });
+
+    const approved = approveCommerce(quoted.workflow, {
+      userApproved: true,
+      recipient: "service.example",
+      amount: "10.00",
+      currency: "USDC",
+      purpose: "Research service",
+    });
+
+    expect(approved.ok).toBe(true);
+    expect(approved.workflow.status).toBe("APPROVED");
+  });
+
+  it("rejects approval when the user changes the recipient", async () => {
+    const {
+      createCommerceWorkflow,
+      attachQuote,
+      approveCommerce,
+    } = await import("../packages/core/src/commerce/workflow");
+
+    const created = createCommerceWorkflow(baseRequest);
+
+    const quoted = attachQuote(created.workflow, {
+      quoteId: "quote-001",
+      requestId: "req-001",
+      service: "research",
+      recipient: "service.example",
+      amount: "10.00",
+      currency: "USDC",
+      purpose: "Research service",
+      expiresAt: "2026-10-02T12:00:00.000Z",
+    });
+
+    const approved = approveCommerce(quoted.workflow, {
+      userApproved: true,
+      recipient: "attacker.example",
+      amount: "10.00",
+      currency: "USDC",
+      purpose: "Research service",
+    });
+
+    expect(approved.ok).toBe(false);
+    expect(approved.workflow.status).toBe("APPROVAL_REQUIRED");
+  });
+
+  it("cannot execute before approval", async () => {
+    const {
+      createCommerceWorkflow,
+      beginExecution,
+    } = await import("../packages/core/src/commerce/workflow");
+
+    const created = createCommerceWorkflow(baseRequest);
+
+    const result = beginExecution(created.workflow);
+
+    expect(result.ok).toBe(false);
+    expect(result.workflow.status).toBe("CLEARED");
+  });
+
+  it("cannot complete without an authoritative execution id", async () => {
+    const {
+      createCommerceWorkflow,
+      attachQuote,
+      approveCommerce,
+      beginExecution,
+      completeExecution,
+    } = await import("../packages/core/src/commerce/workflow");
+
+    const created = createCommerceWorkflow(baseRequest);
+
+    const quoted = attachQuote(created.workflow, {
+      quoteId: "quote-001",
+      requestId: "req-001",
+      service: "research",
+      recipient: "service.example",
+      amount: "10.00",
+      currency: "USDC",
+      purpose: "Research service",
+      expiresAt: "2026-10-02T12:00:00.000Z",
+    });
+
+    const approved = approveCommerce(quoted.workflow, {
+      userApproved: true,
+      recipient: "service.example",
+      amount: "10.00",
+      currency: "USDC",
+      purpose: "Research service",
+    });
+
+    const executing = beginExecution(approved.workflow);
+
+    const completed = completeExecution(executing.workflow, "");
+
+    expect(completed.ok).toBe(false);
+    expect(completed.workflow.status).toBe("EXECUTING");
+  });
+
+  it("completes only with an authoritative execution id", async () => {
+    const {
+      createCommerceWorkflow,
+      attachQuote,
+      approveCommerce,
+      beginExecution,
+      completeExecution,
+    } = await import("../packages/core/src/commerce/workflow");
+
+    const created = createCommerceWorkflow(baseRequest);
+
+    const quoted = attachQuote(created.workflow, {
+      quoteId: "quote-001",
+      requestId: "req-001",
+      service: "research",
+      recipient: "service.example",
+      amount: "10.00",
+      currency: "USDC",
+      purpose: "Research service",
+      expiresAt: "2026-10-02T12:00:00.000Z",
+    });
+
+    const approved = approveCommerce(quoted.workflow, {
+      userApproved: true,
+      recipient: "service.example",
+      amount: "10.00",
+      currency: "USDC",
+      purpose: "Research service",
+    });
+
+    const executing = beginExecution(approved.workflow);
+
+    const completed = completeExecution(
+      executing.workflow,
+      "provider-tx-or-service-id-001",
+    );
+
+    expect(completed.ok).toBe(true);
+    expect(completed.workflow.status).toBe("COMPLETED");
+    expect(completed.workflow.executionId).toBe(
+      "provider-tx-or-service-id-001",
+    );
+  });
+});

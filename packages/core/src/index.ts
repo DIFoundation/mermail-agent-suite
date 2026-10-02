@@ -269,3 +269,20 @@ export {
   inspectInbox,
   inspectInboxMessage,
 } from "./mermail/inbox";
+
+export type {
+  CommerceStatus,
+  CommerceRequest as CommerceWorkflowRequest,
+  CommerceQuote,
+  CommerceWorkflow,
+  TransitionResult,
+} from "./commerce/workflow";
+
+export {
+  createCommerceWorkflow,
+  attachQuote,
+  approveCommerce,
+  beginExecution,
+  completeExecution,
+  failExecution,
+} from "./commerce/workflow";
