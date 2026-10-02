@@ -26,6 +26,9 @@ importers:
 
   apps/demo:
     dependencies:
+      '@mermail-agent-suite/core':
+        specifier: workspace:*
+        version: link:../../packages/core
       next:
         specifier: 15.5.4
         version: 15.5.4(react-dom@19.1.1(react@19.1.1))(react@19.1.1)

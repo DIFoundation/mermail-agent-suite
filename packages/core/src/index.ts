@@ -254,3 +254,18 @@ export function canExecuteCommerce(request: CommerceRequest): {
     reason: "Cleared for the next Mermail commerce workflow step.",
   };
 }
+
+export type {
+  MermailMessage,
+  InboxProvider,
+} from "./mermail/types";
+
+export {
+  normalizeMermailMessage,
+  normalizeMermailMessages,
+} from "./mermail/normalize";
+
+export {
+  inspectInbox,
+  inspectInboxMessage,
+} from "./mermail/inbox";

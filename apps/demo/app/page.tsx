@@ -1,43 +1,219 @@
-const events = [
-  ["09:41:02", "MAIL_RECEIVED", "agent@mermail.app", "Incoming service request"],
-  ["09:41:03", "SENTINEL", "CLEAR", "No high-risk signal detected"],
-  ["09:41:04", "NORMALIZED", "WEB_RESEARCH", "0.10 USDC quote prepared"],
-  ["09:41:05", "APPROVAL", "WAITING", "Human approval required"],
-];
+"use client";
+
+import { useEffect, useState } from "react";
+
+type Decision = "clear" | "review" | "block";
+
+interface Message {
+  id: string;
+  from: {
+    name?: string;
+    email: string;
+  };
+  subject: string;
+  body: string;
+  receivedAt: string;
+  security: {
+    decision: Decision;
+    riskScore: number;
+    signals: Array<{
+      code: string;
+      label: string;
+      level: string;
+      evidence: string;
+    }>;
+    reasons: string[];
+    requiresHumanApproval: boolean;
+  };
+}
+
+const decisionLabel: Record<Decision, string> = {
+  clear: "CLEAR",
+  review: "REVIEW",
+  block: "BLOCK",
+};
+
+function DecisionBadge({ decision }: { decision: Decision }) {
+  return (
+    <span className={`badge badge-${decision}`}>
+      {decisionLabel[decision]}
+    </span>
+  );
+}
 
 export default function Home() {
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [selected, setSelected] = useState<Message | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/inbox")
+      .then((response) => response.json())
+      .then((data) => {
+        setMessages(data.messages);
+        setSelected(data.messages[0] ?? null);
+      })
+      .finally(() => setLoading(false));
+  }, []);
+
+  const counts = {
+    clear: messages.filter((m) => m.security.decision === "clear").length,
+    review: messages.filter((m) => m.security.decision === "review").length,
+    block: messages.filter((m) => m.security.decision === "block").length,
+  };
+
   return (
     <main className="shell">
-      <header className="hero">
+      <header className="header">
         <div>
           <p className="eyebrow">MERMAIL AGENT SUITE</p>
-          <h1>Trust the workflow.<br /><span>Not the inbox.</span></h1>
-          <p className="lede">Two composable skills for safer autonomous email workflows: Sentinel protects the agent boundary; Commerce Bridge turns approved requests into auditable service transactions.</p>
+          <h1>Security Console</h1>
+          <p className="subtitle">
+            Email is data, not authority.
+          </p>
         </div>
-        <div className="status"><span /> DEMO MODE</div>
+
+        <div className="status">
+          <span className="status-dot" />
+          Sentinel online
+        </div>
       </header>
 
-      <section className="grid two">
-        <article className="card accent">
-          <div className="cardhead"><span>01</span><strong>Mermail Sentinel</strong><b>CLEAR</b></div>
-          <p>Security gate for untrusted inbound agent mail.</p>
-          <div className="signals"><span>Identity</span><span>Intent</span><span>Injection</span><span>Secrets</span><span>Payment</span><span>Links</span></div>
-        </article>
-        <article className="card">
-          <div className="cardhead"><span>02</span><strong>Commerce Bridge</strong><b>APPROVAL</b></div>
-          <p>Transforms a cleared request into a quote → approval → execution → receipt workflow.</p>
-          <div className="flow"><i>QUOTE</i><em>→</em><i>APPROVE</i><em>→</em><i>EXECUTE</i><em>→</em><i>RECEIPT</i></div>
-        </article>
+      <section className="stats">
+        <div className="stat">
+          <span>Messages</span>
+          <strong>{messages.length}</strong>
+        </div>
+
+        <div className="stat">
+          <span>Clear</span>
+          <strong>{counts.clear}</strong>
+        </div>
+
+        <div className="stat">
+          <span>Review</span>
+          <strong>{counts.review}</strong>
+        </div>
+
+        <div className="stat">
+          <span>Blocked</span>
+          <strong>{counts.block}</strong>
+        </div>
       </section>
 
-      <section className="card timeline">
-        <div className="sectiontitle"><span>LIVE TRACE</span><small>MERMAIL → SENTINEL → COMMERCE</small></div>
-        {events.map(([time, type, actor, message]) => <div className="event" key={time}><time>{time}</time><b>{type}</b><span>{actor}</span><p>{message}</p></div>)}
-      </section>
+      <section className="workspace">
+        <aside className="inbox">
+          <div className="section-title">
+            <span>INBOX</span>
+            <span>{messages.length}</span>
+          </div>
 
-      <section className="card principle">
-        <div><p className="eyebrow">SAFETY CONTRACT</p><h2>Email can request.<br />Email cannot authorize.</h2></div>
-        <div className="rules"><p>✓ External effects require explicit approval</p><p>✓ Payment requests remain untrusted</p><p>✓ Sentinel evidence is preserved</p><p>✓ Ambiguous execution fails closed</p></div>
+          {loading ? (
+            <div className="empty">Loading inbox...</div>
+          ) : (
+            messages.map((message) => (
+              <button
+                key={message.id}
+                className={`message ${
+                  selected?.id === message.id ? "selected" : ""
+                }`}
+                onClick={() => setSelected(message)}
+              >
+                <div className="message-top">
+                  <strong>
+                    {message.from.name || message.from.email}
+                  </strong>
+                  <DecisionBadge
+                    decision={message.security.decision}
+                  />
+                </div>
+
+                <span className="message-subject">
+                  {message.subject}
+                </span>
+
+                <span className="message-preview">
+                  {message.body}
+                </span>
+              </button>
+            ))
+          )}
+        </aside>
+
+        <article className="detail">
+          {!selected ? (
+            <div className="empty">Select a message.</div>
+          ) : (
+            <>
+              <div className="detail-header">
+                <div>
+                  <p className="eyebrow">SECURITY ANALYSIS</p>
+                  <h2>{selected.subject}</h2>
+                  <p className="sender">
+                    From {selected.from.name || selected.from.email}
+                    {" · "}
+                    {new Date(selected.receivedAt).toLocaleString()}
+                  </p>
+                </div>
+
+                <DecisionBadge
+                  decision={selected.security.decision}
+                />
+              </div>
+
+              <div className="risk">
+                <div>
+                  <span>Risk score</span>
+                  <strong>{selected.security.riskScore}/100</strong>
+                </div>
+
+                <div className="risk-bar">
+                  <div
+                    style={{
+                      width: `${selected.security.riskScore}%`,
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div className="body">
+                <h3>Message</h3>
+                <p>{selected.body}</p>
+              </div>
+
+              <div className="analysis">
+                <h3>Detected signals</h3>
+
+                {selected.security.signals.length === 0 ? (
+                  <p className="safe">
+                    No security signals detected.
+                  </p>
+                ) : (
+                  selected.security.signals.map((signal) => (
+                    <div className="signal" key={signal.code}>
+                      <div>
+                        <strong>{signal.label}</strong>
+                        <span>{signal.level}</span>
+                      </div>
+                      <p>{signal.evidence}</p>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              <div className="authorization">
+                <span>
+                  Human approval required
+                </span>
+                <strong>
+                  {selected.security.requiresHumanApproval
+                    ? "YES"
+                    : "NO"}
+                </strong>
+              </div>
+            </>
+          )}
+        </article>
       </section>
     </main>
   );
