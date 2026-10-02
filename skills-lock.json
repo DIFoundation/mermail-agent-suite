@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "skills": {
+    "mermail": {
+      "source": "Nudgen-Marketing/mermail-skills",
+      "sourceType": "github",
+      "skillPath": "skills/mermail/SKILL.md",
+      "computedHash": "62971bb09ac98db51bc0a4cd98bfe5873a4df80017dd38878431e94d07df0eb1"
+    },
+    "mermail-agent-inbox": {
+      "source": "Nudgen-Marketing/mermail-skills",
+      "sourceType": "github",
+      "skillPath": "skills/mermail-agent-inbox/SKILL.md",
+      "computedHash": "88a12dedbe8c192eca823a393be78076cfc4f8b31f4b3c6b8a1a394bb4070023"
+    },
+    "mermail-agent-wallet": {
+      "source": "Nudgen-Marketing/mermail-skills",
+      "sourceType": "github",
+      "skillPath": "skills/mermail-agent-wallet/SKILL.md",
+      "computedHash": "57feacf30c5581c19c3bcc3b8ff0f93a462f6591ac6991032bdf6898ef278154"
+    },
+    "mermail-mcp": {
+      "source": "Nudgen-Marketing/mermail-skills",
+      "sourceType": "github",
+      "skillPath": "skills/mermail-mcp/SKILL.md",
+      "computedHash": "0f240140a4cb5fda8023f2ccbb6aeb1d888088347eb0f02677a3ef7215379f7e"
+    },
+    "mermail-x402-agent": {
+      "source": "Nudgen-Marketing/mermail-skills",
+      "sourceType": "github",
+      "skillPath": "skills/mermail-x402-agent/SKILL.md",
+      "computedHash": "6326c2eae689624bae6d3277ecfa724ec48816bad813c654f5820dc9ffd4b2ad"
+    }
+  }
+}
