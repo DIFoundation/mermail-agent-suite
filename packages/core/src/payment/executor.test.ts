@@ -7,7 +7,7 @@ describe("payment executor boundary", () => {
       async execute(request) {
         return {
           executionId: "execution-123",
-          status: "settled",
+          status: "SETTLED",
           provider: "test",
           metadata: {
             workflowId: request.workflowId,
@@ -25,7 +25,7 @@ describe("payment executor boundary", () => {
     });
 
     expect(result.executionId).toBe("execution-123");
-    expect(result.status).toBe("settled");
+    expect(result.status).toBe("SETTLED");
   });
 
   it("rejects missing recipient", async () => {
