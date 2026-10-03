@@ -94,3 +94,8 @@ export function approveWorkflow(
 
   return result.workflow;
 }
+
+export function saveWorkflow(workflow: CommerceWorkflow) {
+  workflows.set(workflow.id, workflow);
+  return workflow;
+}

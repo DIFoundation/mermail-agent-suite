@@ -156,6 +156,30 @@ export default function Home() {
     }
   }
 
+  async function executeWorkflow(workflowId: string) {
+    setNotice("Executing approved payment...");
+
+    const response = await fetch(
+      `/api/workflows/${workflowId}/execute`,
+      {
+        method: "POST",
+      },
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      setNotice(data.error ?? "Execution failed");
+      return;
+    }
+
+    setNotice(
+      `Payment settled: ${data.payment.executionId}`,
+    );
+
+    setWorkflow(data.workflow);
+  }
+
   const counts = {
     clear: messages.filter(
       (m) => m.security.decision === "clear",
@@ -426,10 +450,36 @@ export default function Home() {
                         <div className="approved">
                           ✓ Human approval recorded.
                           <br />
-                          <small>
-                            Payment execution remains
-                            disabled in this milestone.
-                          </small>
+                          <button
+                            className="primary-action"
+                            onClick={() =>
+                              executeWorkflow(workflow.request.id)
+                            }
+                          >
+                            Execute Approved Payment
+                          </button>
+                        </div>
+                      )}
+
+                      {workflow.status === "EXECUTING" && (
+                        <div className="executing">
+                          ⏳ Payment execution in progress...
+                        </div>
+                      )}
+
+                      {workflow.status === "SETTLED" && (
+                        <div className="settled">
+                          ✅ Payment settled successfully.
+                        </div>
+                      )}
+
+                      {workflow.status === "COMPLETED" && (
+                        <div className="approved-state">
+                          <strong>Payment completed</strong>
+                          <span>
+                            Authoritative execution ID:{" "}
+                            {workflow.quote?.quoteId}
+                          </span>
                         </div>
                       )}
                     </div>

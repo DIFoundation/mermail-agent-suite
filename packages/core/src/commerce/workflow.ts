@@ -37,6 +37,7 @@ export interface CommerceQuote {
 }
 
 export interface CommerceWorkflow {
+  id: string;
   request: CommerceRequest;
   status: CommerceStatus;
   quote?: CommerceQuote;
@@ -86,6 +87,7 @@ export function createCommerceWorkflow(
   const timestamp = now();
 
   const workflow: CommerceWorkflow = {
+    id: request.id,
     request,
     status: "REQUESTED",
     createdAt: timestamp,
@@ -284,3 +286,4 @@ export function failExecution(
     }),
   };
 }
+
