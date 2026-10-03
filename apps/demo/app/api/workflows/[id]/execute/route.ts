@@ -5,7 +5,8 @@ import {
   failExecution,
 } from "@mermail-agent-suite/core";
 import { getWorkflow, saveWorkflow } from "../../../../../lib/workflows";
-import { demoPaymentExecutor } from "../../../../../lib/payment-executor";
+import { createAppPaymentExecutor } from "../../../../../lib/payment-executor";
+import { demoPaymentProvider } from "../../../../../lib/demo-payment-provider";
 
 export async function POST(
   _request: Request,
@@ -43,8 +44,10 @@ export async function POST(
 
   saveWorkflow(executionStarted.workflow);
 
+  const paymentExecutor = createAppPaymentExecutor(demoPaymentProvider);
+
   try {
-    const result = await demoPaymentExecutor.execute({
+    const result = await paymentExecutor.execute({
       workflowId: executionStarted.workflow.id,
       recipient: executionStarted.workflow.request.recipient,
       amount: executionStarted.workflow.request.amount,

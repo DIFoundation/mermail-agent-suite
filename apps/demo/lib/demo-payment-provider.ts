@@ -1,8 +1,8 @@
 import type {
   PaymentExecutionRequest,
   PaymentExecutionResult,
-  PaymentExecutor,
 } from "@mermail-agent-suite/core";
+
 import type { PaymentProvider } from "./payment-provider";
 
 export const demoPaymentProvider: PaymentProvider = {
@@ -26,35 +26,3 @@ export const demoPaymentProvider: PaymentProvider = {
     };
   },
 };
-
-export function createAppPaymentExecutor(
-  provider: PaymentProvider,
-): PaymentExecutor {
-  return {
-    async execute(
-      request: PaymentExecutionRequest,
-    ): Promise<PaymentExecutionResult> {
-      if (!request.workflowId) {
-        throw new Error("workflowId is required");
-      }
-
-      if (!request.recipient) {
-        throw new Error("recipient is required");
-      }
-
-      if (!request.amount) {
-        throw new Error("amount is required");
-      }
-
-      if (!request.currency) {
-        throw new Error("currency is required");
-      }
-
-      if (!request.purpose) {
-        throw new Error("purpose is required");
-      }
-
-      return provider.execute(request);
-    },
-  };
-}
