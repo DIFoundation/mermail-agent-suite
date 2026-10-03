@@ -44,6 +44,16 @@ type Workflow = {
   };
 };
 
+type Payment = {
+  executionId: string;
+  status: string;
+  amount: string;
+  currency: string;
+  recipient: string;
+  purpose: string;
+  workflowId: string;
+};
+
 function Badge({ decision }: { decision: Decision }) {
   return (
     <span className={`badge badge-${decision}`}>
@@ -56,6 +66,7 @@ export default function Home() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [selected, setSelected] = useState<Message | null>(null);
   const [workflow, setWorkflow] = useState<Workflow | null>(null);
+  const [payment, setPayment] = useState<Payment | null>(null);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [approving, setApproving] = useState(false);
@@ -156,11 +167,22 @@ export default function Home() {
     }
   }
 
-  async function executeWorkflow(workflowId: string) {
+  async function executeWorkflow() {
+    if (!workflow) return;
     setNotice("Executing approved payment...");
 
+    setPayment({
+      executionId: "",
+      status: "",
+      amount: "",
+      currency: "",
+      recipient: "",
+      purpose: "",
+      workflowId: "",
+    });
+
     const response = await fetch(
-      `/api/workflows/${workflowId}/execute`,
+      `/api/workflows/${workflow.request.id}/execute`,
       {
         method: "POST",
       },
@@ -177,7 +199,9 @@ export default function Home() {
       `Payment settled: ${data.payment.executionId}`,
     );
 
-    setWorkflow(data.workflow);
+    console.log("execute comple:", data.payment);
+
+    setPayment(data.payment);
   }
 
   const counts = {
@@ -347,7 +371,7 @@ export default function Home() {
 
               {selected.security.decision === "clear" && (
                 <div className="commerce">
-                  {!workflow ? (
+                  {!workflow || !payment ? (
                     <>
                       <div>
                         <h3>
@@ -453,7 +477,7 @@ export default function Home() {
                           <button
                             className="primary-action"
                             onClick={() =>
-                              executeWorkflow(workflow.request.id)
+                              executeWorkflow()
                             }
                           >
                             Execute Approved Payment
@@ -467,18 +491,18 @@ export default function Home() {
                         </div>
                       )}
 
-                      {workflow.status === "SETTLED" && (
+                      {workflow.status === "COMPLETED" && (
                         <div className="settled">
                           ✅ Payment settled successfully.
                         </div>
                       )}
 
-                      {workflow.status === "COMPLETED" && (
+                      {payment.status === "SETTLED" && (
                         <div className="approved-state">
-                          <strong>Payment completed</strong>
+                          <strong>Payment completed. </strong>
                           <span>
                             Authoritative execution ID:{" "}
-                            {workflow.quote?.quoteId}
+                            {payment?.executionId}
                           </span>
                         </div>
                       )}

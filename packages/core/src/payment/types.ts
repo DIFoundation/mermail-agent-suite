@@ -8,7 +8,7 @@ export interface PaymentExecutionRequest {
 
 export interface PaymentExecutionResult {
   executionId: string;
-  status: "submitted" | "settled";
+  status: "SUBMITTED" | "SETTLED";
   provider: string;
   metadata?: Record<string, unknown>;
 }

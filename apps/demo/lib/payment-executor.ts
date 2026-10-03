@@ -12,7 +12,7 @@ export const demoPaymentExecutor: PaymentExecutor = {
 
     return {
       executionId: `demo-payment-${crypto.randomUUID()}`,
-      status: "settled",
+      status: "SETTLED",
       provider: "demo-executor",
       metadata: {
         workflowId: request.workflowId,
