@@ -36,12 +36,15 @@ type Workflow = {
     purpose: string;
     sourceMessageId: string;
     userApproved: boolean;
+    isX402?: boolean;
+    x402Url?: string;
   };
   status: string;
   quote?: {
     quoteId: string;
     expiresAt: string;
   };
+  failureReason?: string;
 };
 
 type Payment = {
@@ -181,12 +184,14 @@ export default function Home() {
       workflowId: "",
     });
 
-    const response = await fetch(
-      `/api/workflows/${workflow.request.id}/execute`,
-      {
-        method: "POST",
-      },
-    );
+    // Use x402 execution if this is an x402 request
+    const endpoint = workflow.request.isX402
+      ? `/api/workflows/${workflow.request.id}/execute-x402`
+      : `/api/workflows/${workflow.request.id}/execute`;
+
+    const response = await fetch(endpoint, {
+      method: "POST",
+    });
 
     const data = await response.json();
 
@@ -195,13 +200,85 @@ export default function Home() {
       return;
     }
 
-    setNotice(
-      `Payment settled: ${data.payment.executionId}`,
-    );
+    console.log("execute complete:", data);
 
-    console.log("execute comple:", data.payment);
+    if (workflow.request.isX402) {
+      setNotice(`x402 payment completed: ${data.paymentId}`);
+      setWorkflow(data.workflow);
+      setPayment({
+        executionId: data.paymentId,
+        status: "SETTLED",
+        amount: workflow.request.amount,
+        currency: workflow.request.currency,
+        recipient: workflow.request.recipient,
+        purpose: workflow.request.purpose,
+        workflowId: workflow.request.id,
+      });
+    } else {
+      setPayment(data.payment);
 
-    setPayment(data.payment);
+      if (data.status === "PENDING") {
+        setNotice("Payment pending signature/approval. Polling for settlement...");
+        await pollPaymentStatus(workflow.request.id);
+      } else {
+        setNotice(`Payment settled: ${data.payment.executionId}`);
+        setWorkflow(data.workflow);
+      }
+    }
+  }
+
+  async function pollPaymentStatus(workflowId: string) {
+    const pollInterval = 3000; // 3 seconds
+    const maxAttempts = 60; // 3 minutes total
+    let attempts = 0;
+
+    const poll = async () => {
+      attempts++;
+      if (attempts > maxAttempts) {
+        setNotice("Payment status check timed out. Please check manually.");
+        return;
+      }
+
+      const response = await fetch(
+        `/api/workflows/${workflowId}/check-payment`,
+        {
+          method: "POST",
+        },
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setNotice(data.error ?? "Payment status check failed");
+        return;
+      }
+
+      if (data.status === "COMPLETED") {
+        setNotice(`Payment settled: ${data.workflow.executionId}`);
+        setWorkflow(data.workflow);
+        setPayment({
+          executionId: data.workflow.executionId,
+          status: "SETTLED",
+          amount: data.workflow.request.amount,
+          currency: data.workflow.request.currency,
+          recipient: data.workflow.request.recipient,
+          purpose: data.workflow.request.purpose,
+          workflowId: data.workflow.id,
+        });
+        return;
+      }
+
+      if (data.status === "FAILED") {
+        setNotice(`Payment failed: ${data.workflow.failureReason}`);
+        setWorkflow(data.workflow);
+        return;
+      }
+
+      // Still pending, continue polling
+      setTimeout(poll, pollInterval);
+    };
+
+    poll();
   }
 
   const counts = {
@@ -270,9 +347,8 @@ export default function Home() {
             messages.map((message) => (
               <button
                 key={message.id}
-                className={`message ${
-                  selected?.id === message.id ? "selected" : ""
-                }`}
+                className={`message ${selected?.id === message.id ? "selected" : ""
+                  }`}
                 onClick={() => {
                   setSelected(message);
                   setWorkflow(null);
@@ -445,42 +521,49 @@ export default function Home() {
 
                       {workflow.status ===
                         "APPROVAL_REQUIRED" && (
-                        <div className="approval-actions">
-                          <button
-                            className="danger"
-                            onClick={() => {
-                              setWorkflow(null);
-                              setNotice(
-                                "Commerce request rejected.",
-                              );
-                            }}
-                          >
-                            Reject
-                          </button>
+                          <div className="approval-actions">
+                            <button
+                              className="danger"
+                              onClick={() => {
+                                setWorkflow(null);
+                                setNotice(
+                                  "Commerce request rejected.",
+                                );
+                              }}
+                            >
+                              Reject
+                            </button>
 
-                          <button
-                            className="primary"
-                            onClick={approve}
-                            disabled={approving}
-                          >
-                            {approving
-                              ? "Approving..."
-                              : "Approve Request"}
-                          </button>
-                        </div>
-                      )}
+                            <button
+                              className="primary"
+                              onClick={approve}
+                              disabled={approving}
+                            >
+                              {approving
+                                ? "Approving..."
+                                : "Approve Request"}
+                            </button>
+                          </div>
+                        )}
 
                       {workflow.status === "APPROVED" && (
                         <div className="approved">
                           ✓ Human approval recorded.
                           <br />
+                          {workflow.request.isX402 && (
+                            <div className="x402-indicator">
+                              📡 x402 request detected
+                            </div>
+                          )}
                           <button
                             className="primary-action"
                             onClick={() =>
                               executeWorkflow()
                             }
                           >
-                            Execute Approved Payment
+                            {workflow.request.isX402
+                              ? "Execute x402 Payment"
+                              : "Execute Approved Payment"}
                           </button>
                         </div>
                       )}
@@ -488,12 +571,41 @@ export default function Home() {
                       {workflow.status === "EXECUTING" && (
                         <div className="executing">
                           ⏳ Payment execution in progress...
+                          {payment.status === "PENDING" && (
+                            <div className="pending-info">
+                              <span>Waiting for signature/approval</span>
+                              <button
+                                className="secondary"
+                                onClick={() => pollPaymentStatus(workflow.request.id)}
+                              >
+                                Check Status
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {workflow.status === "X402_PENDING" && (
+                        <div className="executing">
+                          ⏳ x402 payment in progress...
+                        </div>
+                      )}
+
+                      {workflow.status === "X402_COMPLETED" && (
+                        <div className="executing">
+                          ⏳ Continuing original request...
                         </div>
                       )}
 
                       {workflow.status === "COMPLETED" && (
                         <div className="settled">
                           ✅ Payment settled successfully.
+                        </div>
+                      )}
+
+                      {workflow.status === "FAILED" && (
+                        <div className="failed">
+                          ❌ Payment failed: {workflow.failureReason}
                         </div>
                       )}
 

@@ -7,6 +7,8 @@ export type CommerceStatus =
   | "APPROVAL_REQUIRED"
   | "APPROVED"
   | "EXECUTING"
+  | "X402_PENDING"
+  | "X402_COMPLETED"
   | "COMPLETED"
   | "FAILED";
 
@@ -22,6 +24,8 @@ export interface CommerceRequest {
   sentinelDecision: SentinelResult["decision"];
   sentinelRiskScore: number;
   userApproved: boolean;
+  isX402?: boolean;
+  x402Url?: string;
 }
 
 export interface CommerceQuote {
@@ -330,7 +334,7 @@ export function failExecution(
   workflow: CommerceWorkflow,
   reason: string,
 ): TransitionResult {
-  if (workflow.status !== "EXECUTING") {
+  if (workflow.status !== "EXECUTING" && workflow.status !== "X402_PENDING") {
     return {
       ok: false,
       workflow,
@@ -342,6 +346,87 @@ export function failExecution(
     ok: true,
     workflow: update(workflow, "FAILED", {
       failureReason: reason,
+    }),
+  };
+}
+
+export function beginX402Execution(
+  workflow: CommerceWorkflow,
+): TransitionResult {
+  if (workflow.status !== "APPROVED") {
+    return {
+      ok: false,
+      workflow,
+      error: "Only an approved workflow may execute x402.",
+    };
+  }
+
+  if (!workflow.request.isX402) {
+    return {
+      ok: false,
+      workflow,
+      error: "This workflow is not an x402 request.",
+    };
+  }
+
+  if (!workflow.request.x402Url) {
+    return {
+      ok: false,
+      workflow,
+      error: "x402 URL is required for x402 execution.",
+    };
+  }
+
+  return {
+    ok: true,
+    workflow: update(workflow, "X402_PENDING"),
+  };
+}
+
+export function completeX402Execution(
+  workflow: CommerceWorkflow,
+  x402PaymentId: string,
+): TransitionResult {
+  if (workflow.status !== "X402_PENDING") {
+    return {
+      ok: false,
+      workflow,
+      error: "Workflow is not in x402 pending state.",
+    };
+  }
+
+  if (!x402PaymentId) {
+    return {
+      ok: false,
+      workflow,
+      error: "x402 payment ID is required.",
+    };
+  }
+
+  return {
+    ok: true,
+    workflow: update(workflow, "X402_COMPLETED", {
+      executionId: x402PaymentId,
+    }),
+  };
+}
+
+export function continueOriginalRequest(
+  workflow: CommerceWorkflow,
+  originalResponse: unknown,
+): TransitionResult {
+  if (workflow.status !== "X402_COMPLETED") {
+    return {
+      ok: false,
+      workflow,
+      error: "x402 payment must be completed before continuing.",
+    };
+  }
+
+  return {
+    ok: true,
+    workflow: update(workflow, "COMPLETED", {
+      executionId: workflow.executionId,
     }),
   };
 }

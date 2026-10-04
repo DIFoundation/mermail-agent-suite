@@ -285,6 +285,9 @@ export {
   beginExecution,
   completeExecution,
   failExecution,
+  beginX402Execution,
+  completeX402Execution,
+  continueOriginalRequest,
 } from "./commerce/workflow";
 
 export * from "./payment/types";
@@ -298,3 +301,5 @@ export type {
   CommerceExtractionStatus,
   ExtractedCommerceRequest,
 } from "./commerce/extract";
+
+export { decimalToAtomicUnits } from "./payment/units";

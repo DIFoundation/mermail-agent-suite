@@ -4,11 +4,22 @@ export interface PaymentExecutionRequest {
   amount: string;
   currency: string;
   purpose: string;
+
+  /**
+   * PayBox execution metadata.
+   *
+   * `amount` remains human-readable here.
+   * The Mermail adapter converts it into the token's smallest units.
+   */
+  chain?: string;
+  credentialId?: string;
+  token?: string | null;
+  decimals?: number;
 }
 
 export interface PaymentExecutionResult {
   executionId: string;
-  status: "SUBMITTED" | "SETTLED";
+  status: "SUBMITTED" | "PENDING" | "SETTLED" | "FAILED";
   provider: string;
   metadata?: Record<string, unknown>;
 }

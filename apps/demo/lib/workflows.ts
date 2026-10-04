@@ -25,6 +25,8 @@ export function createWorkflow(input: {
   purpose: string;
   sentinel: SentinelResult;
   network?: string;
+  isX402?: boolean;
+  x402Url?: string;
 }) {
   const id = `req-${crypto.randomUUID()}`;
 
@@ -40,6 +42,8 @@ export function createWorkflow(input: {
     sentinelDecision: input.sentinel.decision,
     sentinelRiskScore: input.sentinel.riskScore,
     userApproved: false,
+    isX402: input.isX402,
+    x402Url: input.x402Url,
   });
 
   if (!result.ok) {

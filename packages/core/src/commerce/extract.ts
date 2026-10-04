@@ -19,6 +19,8 @@ export interface ExtractedCommerceRequest {
     service?: string;
     purpose?: string;
   };
+  isX402?: boolean;
+  x402Url?: string;
 }
 
 const CURRENCY_PATTERN =
@@ -33,6 +35,16 @@ const CURRENCY_AMOUNT_PATTERN =
 const EVM_ADDRESS_PATTERN = /0x[a-fA-F0-9]{40}\b/;
 
 const SOLANA_ADDRESS_PATTERN = /\b[1-9A-HJ-NP-Za-km-z]{32,44}\b/;
+
+const URL_PATTERN = /https?:\/\/[^\s<>"{}|\\^`\[\]]+/i;
+
+const X402_INDICATORS = [
+  /\bx402\b/i,
+  /\b402\s+payment\b/i,
+  /\bpay-per-call\b/i,
+  /\bpay-per-request\b/i,
+  /\bpaid\s+api\b/i,
+];
 
 function normalizeWhitespace(value: string) {
   return value.replace(/\s+/g, " ").trim();
@@ -137,6 +149,15 @@ function extractPurpose(text: string) {
   return undefined;
 }
 
+function detectX402(text: string): boolean {
+  return X402_INDICATORS.some((pattern) => pattern.test(text));
+}
+
+function extractUrl(text: string): string | undefined {
+  const match = text.match(URL_PATTERN);
+  return match?.[0];
+}
+
 export function extractCommerceRequest(input: {
   subject?: string;
   body: string;
@@ -170,6 +191,8 @@ export function extractCommerceRequest(input: {
   const recipient = extractRecipient(text);
   const service = extractService(text);
   const purpose = extractPurpose(text);
+  const isX402 = detectX402(text);
+  const x402Url = isX402 ? extractUrl(text) : undefined;
 
   const missingFields: ExtractedCommerceRequest["missingFields"] = [];
 
@@ -193,5 +216,7 @@ export function extractCommerceRequest(input: {
       service,
       purpose,
     },
+    isX402,
+    x402Url,
   };
 }

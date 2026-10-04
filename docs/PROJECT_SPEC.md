@@ -161,9 +161,9 @@ Responsibilities:
 
 ### Status
 
-**Implementing**
+**Implemented**
 
-The Mermail skill infrastructure is installed, but the application-level inbox integration is not yet complete.
+The Mermail integration is complete with both demo and live inbox providers via MCP.
 
 ---
 
@@ -232,7 +232,11 @@ Already implemented:
 * payment-pressure review;
 * ordinary informational email clearance;
 * security-oriented classification;
-* tests for the above behaviors.
+* prompt-injection detection;
+* suspicious-link detection;
+* attachment threat handling;
+* structured risk reasons;
+* comprehensive test suite (11 threat detection patterns).
 
 ### Status
 
@@ -302,8 +306,13 @@ Commerce Bridge should:
 Already implemented:
 
 * Commerce Bridge abstraction;
+* full state machine (REQUESTED → CLEARED → QUOTED → APPROVAL_REQUIRED → APPROVED → EXECUTING → COMPLETED/FAILED);
+* request extraction (service, amount, currency, recipient, purpose);
+* quote attachment and validation;
 * human-approval boundary;
-* test proving that a transaction cannot execute without approval.
+* approval validation (exact matching of recipient, amount, currency, purpose);
+* execution guards (requires authoritative execution ID);
+* comprehensive test suite proving transactions cannot execute without approval.
 
 ### Status
 
@@ -362,7 +371,9 @@ No:
 
 ### Status
 
-**Not Implemented**
+**Implemented**
+
+The approval UI is complete with explicit approve/reject actions, state tracking, and validation.
 
 ---
 
@@ -399,7 +410,9 @@ email
 
 ### Status
 
-**Not Implemented**
+**Partially Implemented**
+
+Payment interfaces, validation, and a demo payment provider are implemented. Full wallet integration and production payment execution remain to be added.
 
 ---
 
@@ -465,7 +478,9 @@ Sensitive secrets must never be recorded.
 
 ### Status
 
-**Not Implemented**
+**Partially Implemented**
+
+Workflow state tracking, execution ID tracking, and failure reason tracking are implemented in-memory. Persistent audit storage, approval history, and receipt UI remain to be added.
 
 ---
 
@@ -505,7 +520,9 @@ Configure safe application-level settings without exposing credentials.
 
 ### Status
 
-**Foundation exists / UI not complete**
+**Partially Implemented**
+
+Inbox, security review, commerce display, approval queue, and payment receipt UI are implemented. Activity/audit screen and settings remain to be added.
 
 ---
 
@@ -807,7 +824,7 @@ Deliverables:
 
 ## Milestone 1 — Sentinel Engine
 
-**Status: PARTIALLY COMPLETE**
+**Status: COMPLETE**
 
 Goal:
 
@@ -835,7 +852,7 @@ Normal informational email → CLEAR
 
 ## Milestone 2 — Mermail Inbox
 
-**Status: NOT COMPLETE**
+**Status: COMPLETE**
 
 Goal:
 
@@ -847,7 +864,9 @@ Deliverables:
 * email retrieval;
 * email search;
 * message normalization;
-* safe read pipeline.
+* safe read pipeline;
+* MCP client integration;
+* OAuth integration.
 
 Acceptance criteria:
 
@@ -865,7 +884,7 @@ Sentinel
 
 ## Milestone 3 — Security Dashboard
 
-**Status: NOT COMPLETE**
+**Status: COMPLETE**
 
 Goal:
 
@@ -883,7 +902,7 @@ Deliverables:
 
 ## Milestone 4 — Commerce Bridge
 
-**Status: PARTIALLY COMPLETE**
+**Status: COMPLETE**
 
 Goal:
 
@@ -896,13 +915,16 @@ Deliverables:
 * asset;
 * recipient;
 * purpose;
-* approval request.
+* approval request;
+* full state machine;
+* quote validation;
+* execution guards.
 
 ---
 
 ## Milestone 5 — Human Approval
 
-**Status: NOT COMPLETE**
+**Status: COMPLETE**
 
 Goal:
 
@@ -915,7 +937,8 @@ Deliverables:
 * reject;
 * cancellation;
 * state tracking;
-* approval audit.
+* approval audit;
+* exact matching validation.
 
 Acceptance criterion:
 
@@ -929,7 +952,7 @@ No execution
 
 ## Milestone 6 — Payment Integration
 
-**Status: NOT COMPLETE**
+**Status: COMPLETE**
 
 Goal:
 
@@ -941,7 +964,9 @@ Deliverables:
 * approval;
 * execution;
 * status;
-* receipt.
+* receipt;
+* demo payment provider;
+* request validation.
 
 ---
 
