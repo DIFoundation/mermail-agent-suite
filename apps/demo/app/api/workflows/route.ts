@@ -1,3 +1,4 @@
+import { analyzeMessage } from "@mermail-agent-suite/core";
 import { createWorkflow, listWorkflows } from "../../../lib/workflows";
 
 export async function GET() {
@@ -24,6 +25,26 @@ export async function POST(request: Request) {
       );
     }
 
+    /*
+     * This generic endpoint is retained for deterministic demo/testing
+     * workflows. The live email path must use
+     * /api/inbox/[id]/commerce so Sentinel evaluates the actual message.
+     */
+    const sentinel = analyzeMessage({
+      subject: body.subject ?? "",
+      body: body.body ?? "",
+    });
+
+    if (sentinel.decision !== "clear") {
+      return Response.json(
+        {
+          error: "Sentinel clearance required.",
+          sentinel,
+        },
+        { status: 409 },
+      );
+    }
+
     const workflow = createWorkflow({
       sourceMessageId: body.sourceMessageId,
       service: body.service,
@@ -31,6 +52,8 @@ export async function POST(request: Request) {
       amount: body.amount,
       currency: body.currency,
       purpose: body.purpose,
+      sentinel,
+      network: body.network ?? "demo",
     });
 
     return Response.json(workflow, { status: 201 });

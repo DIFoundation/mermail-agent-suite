@@ -81,6 +81,27 @@ function hasRequiredRequestFields(request: CommerceRequest) {
   );
 }
 
+function isValidFutureExpiry(expiresAt: string): boolean {
+  const timestamp = Date.parse(expiresAt);
+
+  return Number.isFinite(timestamp) && timestamp > Date.now();
+}
+
+function quoteMatchesRequest(
+  workflow: CommerceWorkflow,
+  quote: CommerceQuote,
+): boolean {
+  return (
+    quote.requestId === workflow.request.id &&
+    quote.service === workflow.request.service &&
+    quote.recipient === workflow.request.recipient &&
+    quote.amount === workflow.request.amount &&
+    quote.currency === workflow.request.currency &&
+    quote.purpose === workflow.request.purpose &&
+    quote.network === workflow.request.network
+  );
+}
+
 export function createCommerceWorkflow(
   request: CommerceRequest,
 ): TransitionResult {
@@ -143,15 +164,25 @@ export function attachQuote(
   }
 
   if (
+    quote.service !== workflow.request.service ||
     quote.recipient !== workflow.request.recipient ||
     quote.amount !== workflow.request.amount ||
-    quote.currency !== workflow.request.currency
+    quote.currency !== workflow.request.currency ||
+    quote.purpose !== workflow.request.purpose ||
+    quote.network !== workflow.request.network
   ) {
     return {
       ok: false,
       workflow,
-      error:
-        "Quote does not match the exact recipient, amount or currency requested.",
+      error: "Quote does not exactly match the commerce request.",
+    };
+  }
+
+  if (!isValidFutureExpiry(quote.expiresAt)) {
+    return {
+      ok: false,
+      workflow,
+      error: "Quote expiry must be a valid future timestamp.",
     };
   }
 
@@ -177,7 +208,33 @@ export function approveCommerce(
     return {
       ok: false,
       workflow,
-      error: `Approval is not available in ${workflow.status} state.`,
+      error: "Commerce workflow is not awaiting approval.",
+    };
+  }
+
+  const quote = workflow.quote;
+
+  if (!quote) {
+    return {
+      ok: false,
+      workflow,
+      error: "Cannot approve commerce without a quote.",
+    };
+  }
+
+  if (!isValidFutureExpiry(quote.expiresAt)) {
+    return {
+      ok: false,
+      workflow,
+      error: "Quote has expired.",
+    };
+  }
+
+  if (!quoteMatchesRequest(workflow, quote)) {
+    return {
+      ok: false,
+      workflow,
+      error: "Quote no longer matches the commerce request.",
     };
   }
 
@@ -185,7 +242,7 @@ export function approveCommerce(
     return {
       ok: false,
       workflow,
-      error: "Explicit human approval is required.",
+      error: "Explicit user approval is required.",
     };
   }
 
@@ -198,19 +255,21 @@ export function approveCommerce(
     return {
       ok: false,
       workflow,
-      error:
-        "Approval does not match the exact request presented for authorization.",
+      error: "Approval does not exactly match the quoted request.",
     };
   }
 
   return {
     ok: true,
-    workflow: update(workflow, "APPROVED", {
+    workflow: {
+      ...workflow,
+      status: "APPROVED",
       request: {
         ...workflow.request,
         userApproved: true,
       },
-    }),
+      updatedAt: new Date().toISOString(),
+    },
   };
 }
 

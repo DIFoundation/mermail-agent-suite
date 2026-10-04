@@ -18,7 +18,6 @@ export interface MermailMessage {
     contentType?: string;
     size?: number;
   }>;
-  raw?: unknown;
 }
 
 export interface InboxProvider {

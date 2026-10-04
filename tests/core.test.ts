@@ -285,6 +285,9 @@ describe("Commerce Bridge workflow", () => {
     userApproved: false,
   };
 
+  const validExpiry = "2099-01-01T00:00:00.000Z";
+  const expiredExpiry = "2020-01-01T00:00:00.000Z";
+
   it("starts cleared only after Sentinel clearance", async () => {
     const { createCommerceWorkflow } =
       await import("../packages/core/src/commerce/workflow");
@@ -325,7 +328,7 @@ describe("Commerce Bridge workflow", () => {
       currency: "USDC",
       purpose: "Research service",
       network: "unknown",
-      expiresAt: "2026-10-02T12:00:00.000Z",
+      expiresAt: validExpiry,
     });
 
     expect(quoted.ok).toBe(true);
@@ -348,7 +351,7 @@ describe("Commerce Bridge workflow", () => {
       amount: "10.00",
       currency: "USDC",
       purpose: "Research service",
-      expiresAt: "2026-10-02T12:00:00.000Z",
+      expiresAt: validExpiry,
     });
 
     expect(quoted.ok).toBe(false);
@@ -372,7 +375,8 @@ describe("Commerce Bridge workflow", () => {
       amount: "10.00",
       currency: "USDC",
       purpose: "Research service",
-      expiresAt: "2026-10-02T12:00:00.000Z",
+      network: "unknown",
+      expiresAt: validExpiry,
     });
 
     const approved = approveCommerce(quoted.workflow, {
@@ -404,7 +408,8 @@ describe("Commerce Bridge workflow", () => {
       amount: "10.00",
       currency: "USDC",
       purpose: "Research service",
-      expiresAt: "2026-10-02T12:00:00.000Z",
+      network: "unknown",
+      expiresAt: validExpiry,
     });
 
     const approved = approveCommerce(quoted.workflow, {
@@ -417,6 +422,246 @@ describe("Commerce Bridge workflow", () => {
 
     expect(approved.ok).toBe(false);
     expect(approved.workflow.status).toBe("APPROVAL_REQUIRED");
+  });
+
+  it("rejects approval when the user changes the amount", async () => {
+    const {
+      createCommerceWorkflow,
+      attachQuote,
+      approveCommerce,
+    } = await import("../packages/core/src/commerce/workflow");
+
+    const created = createCommerceWorkflow(baseRequest);
+
+    const quoted = attachQuote(created.workflow, {
+      quoteId: "quote-001",
+      requestId: "req-001",
+      service: "research",
+      recipient: "service.example",
+      amount: "10.00",
+      currency: "USDC",
+      purpose: "Research service",
+      network: "unknown",
+      expiresAt: validExpiry,
+    });
+
+    const approved = approveCommerce(quoted.workflow, {
+      userApproved: true,
+      recipient: "service.example",
+      amount: "100.00",
+      currency: "USDC",
+      purpose: "Research service",
+    });
+
+    expect(approved.ok).toBe(false);
+    expect(approved.workflow.status).toBe("APPROVAL_REQUIRED");
+  });
+
+  it("rejects approval when the user changes the currency", async () => {
+    const {
+      createCommerceWorkflow,
+      attachQuote,
+      approveCommerce,
+    } = await import("../packages/core/src/commerce/workflow");
+
+    const created = createCommerceWorkflow(baseRequest);
+
+    const quoted = attachQuote(created.workflow, {
+      quoteId: "quote-001",
+      requestId: "req-001",
+      service: "research",
+      recipient: "service.example",
+      amount: "10.00",
+      currency: "USDC",
+      purpose: "Research service",
+      network: "unknown",
+      expiresAt: validExpiry,
+    });
+
+    const approved = approveCommerce(quoted.workflow, {
+      userApproved: true,
+      recipient: "service.example",
+      amount: "10.00",
+      currency: "USDT",
+      purpose: "Research service",
+    });
+
+    expect(approved.ok).toBe(false);
+    expect(approved.workflow.status).toBe("APPROVAL_REQUIRED");
+  });
+
+  it("rejects approval when the user changes the purpose", async () => {
+    const {
+      createCommerceWorkflow,
+      attachQuote,
+      approveCommerce,
+    } = await import("../packages/core/src/commerce/workflow");
+
+    const created = createCommerceWorkflow(baseRequest);
+
+    const quoted = attachQuote(created.workflow, {
+      quoteId: "quote-001",
+      requestId: "req-001",
+      service: "research",
+      recipient: "service.example",
+      amount: "10.00",
+      currency: "USDC",
+      purpose: "Research service",
+      network: "unknown",
+      expiresAt: validExpiry,
+    });
+
+    const approved = approveCommerce(quoted.workflow, {
+      userApproved: true,
+      recipient: "service.example",
+      amount: "10.00",
+      currency: "USDC",
+      purpose: "Completely different purpose",
+    });
+
+    expect(approved.ok).toBe(false);
+    expect(approved.workflow.status).toBe("APPROVAL_REQUIRED");
+  });
+
+  it("rejects approval without explicit user approval", async () => {
+    const {
+      createCommerceWorkflow,
+      attachQuote,
+      approveCommerce,
+    } = await import("../packages/core/src/commerce/workflow");
+
+    const created = createCommerceWorkflow(baseRequest);
+
+    const quoted = attachQuote(created.workflow, {
+      quoteId: "quote-001",
+      requestId: "req-001",
+      service: "research",
+      recipient: "service.example",
+      amount: "10.00",
+      currency: "USDC",
+      purpose: "Research service",
+      network: "unknown",
+      expiresAt: validExpiry,
+    });
+
+    const approved = approveCommerce(quoted.workflow, {
+      userApproved: false,
+      recipient: "service.example",
+      amount: "10.00",
+      currency: "USDC",
+      purpose: "Research service",
+    });
+
+    expect(approved.ok).toBe(false);
+    expect(approved.workflow.status).toBe("APPROVAL_REQUIRED");
+  });
+
+  it("rejects an expired quote", async () => {
+    const {
+      createCommerceWorkflow,
+      attachQuote,
+      approveCommerce,
+    } = await import("../packages/core/src/commerce/workflow");
+
+    const created = createCommerceWorkflow(baseRequest);
+
+    const quoted = attachQuote(created.workflow, {
+      quoteId: "quote-expired",
+      requestId: "req-001",
+      service: "research",
+      recipient: "service.example",
+      amount: "10.00",
+      currency: "USDC",
+      purpose: "Research service",
+      network: "unknown",
+      expiresAt: expiredExpiry,
+    });
+
+    expect(quoted.ok).toBe(false);
+    expect(quoted.workflow.status).toBe("CLEARED");
+
+    if (quoted.ok) {
+      throw new Error("Expected expired quote to be rejected");
+    }
+
+    expect(quoted.error).toContain("expiry");
+  });
+
+  it("cannot approve a workflow that is already approved", async () => {
+    const {
+      createCommerceWorkflow,
+      attachQuote,
+      approveCommerce,
+    } = await import("../packages/core/src/commerce/workflow");
+
+    const created = createCommerceWorkflow(baseRequest);
+
+    const quoted = attachQuote(created.workflow, {
+      quoteId: "quote-001",
+      requestId: "req-001",
+      service: "research",
+      recipient: "service.example",
+      amount: "10.00",
+      currency: "USDC",
+      purpose: "Research service",
+      network: "unknown",
+      expiresAt: validExpiry,
+    });
+
+    const approved = approveCommerce(quoted.workflow, {
+      userApproved: true,
+      recipient: "service.example",
+      amount: "10.00",
+      currency: "USDC",
+      purpose: "Research service",
+    });
+
+    expect(approved.ok).toBe(true);
+
+    const secondApproval = approveCommerce(approved.workflow, {
+      userApproved: true,
+      recipient: "service.example",
+      amount: "10.00",
+      currency: "USDC",
+      purpose: "Research service",
+    });
+
+    expect(secondApproval.ok).toBe(false);
+    expect(secondApproval.workflow.status).toBe("APPROVED");
+  });
+
+  it("approval does not execute the workflow", async () => {
+    const {
+      createCommerceWorkflow,
+      attachQuote,
+      approveCommerce,
+    } = await import("../packages/core/src/commerce/workflow");
+
+    const created = createCommerceWorkflow(baseRequest);
+
+    const quoted = attachQuote(created.workflow, {
+      quoteId: "quote-001",
+      requestId: "req-001",
+      service: "research",
+      recipient: "service.example",
+      amount: "10.00",
+      currency: "USDC",
+      purpose: "Research service",
+      network: "unknown",
+      expiresAt: validExpiry,
+    });
+
+    const approved = approveCommerce(quoted.workflow, {
+      userApproved: true,
+      recipient: "service.example",
+      amount: "10.00",
+      currency: "USDC",
+      purpose: "Research service",
+    });
+
+    expect(approved.ok).toBe(true);
+    expect(approved.workflow.status).toBe("APPROVED");
+    expect(approved.workflow.executionId).toBeUndefined();
   });
 
   it("cannot execute before approval", async () => {
@@ -452,7 +697,8 @@ describe("Commerce Bridge workflow", () => {
       amount: "10.00",
       currency: "USDC",
       purpose: "Research service",
-      expiresAt: "2026-10-02T12:00:00.000Z",
+      network: "unknown",
+      expiresAt: validExpiry,
     });
 
     const approved = approveCommerce(quoted.workflow, {
@@ -490,7 +736,8 @@ describe("Commerce Bridge workflow", () => {
       amount: "10.00",
       currency: "USDC",
       purpose: "Research service",
-      expiresAt: "2026-10-02T12:00:00.000Z",
+      network: "unknown",
+      expiresAt: validExpiry,
     });
 
     const approved = approveCommerce(quoted.workflow, {

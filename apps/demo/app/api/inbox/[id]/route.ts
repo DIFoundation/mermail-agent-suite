@@ -1,5 +1,13 @@
 import { inspectInboxMessage } from "@mermail-agent-suite/core";
+
 import { demoInboxProvider } from "../../../../lib/demo-inbox";
+import { mermailInboxProvider } from "../../../../lib/mermail/inbox-provider";
+
+function getInboxProvider() {
+  return process.env.MERMAIL_INBOX_MODE === "live"
+    ? mermailInboxProvider
+    : demoInboxProvider;
+}
 
 export async function GET(
   _request: Request,
@@ -9,14 +17,19 @@ export async function GET(
 
   try {
     const message = await inspectInboxMessage(
-      demoInboxProvider,
+      getInboxProvider(),
       id,
     );
 
     return Response.json(message);
-  } catch {
+  } catch (error) {
     return Response.json(
-      { error: "Message not found" },
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Message not found",
+      },
       { status: 404 },
     );
   }

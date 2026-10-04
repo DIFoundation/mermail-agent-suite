@@ -95,8 +95,6 @@ export function normalizeMermailMessage(raw: unknown): MermailMessage {
             : undefined,
       };
     }),
-
-    raw,
   };
 }
 

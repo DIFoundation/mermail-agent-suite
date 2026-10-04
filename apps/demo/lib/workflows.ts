@@ -3,6 +3,7 @@ import {
   attachQuote,
   createCommerceWorkflow,
   type CommerceWorkflow,
+  type SentinelResult,
 } from "@mermail-agent-suite/core";
 
 const workflows = new Map<string, CommerceWorkflow>();
@@ -22,6 +23,8 @@ export function createWorkflow(input: {
   amount: string;
   currency: string;
   purpose: string;
+  sentinel: SentinelResult;
+  network?: string;
 }) {
   const id = `req-${crypto.randomUUID()}`;
 
@@ -33,9 +36,9 @@ export function createWorkflow(input: {
     amount: input.amount,
     currency: input.currency,
     purpose: input.purpose,
-    network: "demo",
-    sentinelDecision: "clear",
-    sentinelRiskScore: 0,
+    network: input.network ?? "demo",
+    sentinelDecision: input.sentinel.decision,
+    sentinelRiskScore: input.sentinel.riskScore,
     userApproved: false,
   });
 
@@ -51,7 +54,7 @@ export function createWorkflow(input: {
     amount: input.amount,
     currency: input.currency,
     purpose: input.purpose,
-    network: "demo",
+    network: input.network ?? "demo",
     expiresAt: new Date(
       Date.now() + 15 * 60 * 1000,
     ).toISOString(),
