@@ -1,4 +1,4 @@
-import { analyzeMessage } from "@mermail-agent-suite/core";
+import { analyzeMessage, auditStore } from "@mermail-agent-suite/core";
 import { createWorkflow, listWorkflows } from "../../../lib/workflows";
 
 export async function GET() {
@@ -54,7 +54,24 @@ export async function POST(request: Request) {
       purpose: body.purpose,
       sentinel,
       network: body.network ?? "demo",
+      isX402: body.isX402,
+      x402Url: body.x402Url,
     });
+
+    // Log audit event
+    auditStore.createEvent(
+      "workflow_created",
+      workflow.id,
+      {
+        service: workflow.request.service,
+        recipient: workflow.request.recipient,
+        amount: workflow.request.amount,
+        currency: workflow.request.currency,
+        purpose: workflow.request.purpose,
+        isX402: workflow.request.isX402,
+        x402Url: workflow.request.x402Url,
+      },
+    );
 
     return Response.json(workflow, { status: 201 });
   } catch (error) {

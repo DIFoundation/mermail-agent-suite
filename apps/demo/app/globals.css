@@ -177,6 +177,7 @@ h1 {
   line-height: 1.5;
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
 }
 
@@ -562,6 +563,74 @@ h3 {
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.08em;
+}
+
+.audit-trail {
+  margin-top: 20px;
+  padding: 16px;
+  border: 1px solid #292a30;
+  border-radius: 10px;
+  background: #111217;
+}
+
+.audit-trail h3 {
+  margin: 0 0 12px 0;
+  font-size: 13px;
+  color: #a1a1aa;
+}
+
+.audit-event {
+  padding: 12px;
+  margin-bottom: 8px;
+  border: 1px solid #1c1d21;
+  border-radius: 8px;
+  background: #0d0e12;
+}
+
+.audit-event:last-child {
+  margin-bottom: 0;
+}
+
+.audit-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.audit-type {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #60a5fa;
+}
+
+.audit-time {
+  font-size: 10px;
+  color: #71717a;
+}
+
+.audit-details {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.audit-detail {
+  display: flex;
+  gap: 8px;
+  font-size: 11px;
+}
+
+.audit-detail span:first-child {
+  color: #71717a;
+  min-width: 80px;
+}
+
+.audit-detail span:last-child {
+  color: #a1a1aa;
+  word-break: break-word;
 }
 
 @media (max-width: 600px) {

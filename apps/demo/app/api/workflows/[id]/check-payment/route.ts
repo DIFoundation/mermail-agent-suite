@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
+  auditStore,
   completeExecution,
   failExecution,
 } from "@mermail-agent-suite/core";
@@ -92,6 +93,25 @@ export async function POST(
 
       saveWorkflow(completed.workflow);
 
+      // Log audit event for payment settlement
+      auditStore.createEvent(
+        "payment_settled",
+        completed.workflow.id,
+        {
+          executionId: completed.workflow.executionId,
+          status,
+        },
+      );
+
+      // Log audit event for workflow completion
+      auditStore.createEvent(
+        "workflow_completed",
+        completed.workflow.id,
+        {
+          executionId: completed.workflow.executionId,
+        },
+      );
+
       return NextResponse.json({
         workflow: completed.workflow,
         paymentStatus,
@@ -106,6 +126,25 @@ export async function POST(
       );
 
       saveWorkflow(failed.workflow);
+
+      // Log audit event for payment failure
+      auditStore.createEvent(
+        "payment_failed",
+        failed.workflow.id,
+        {
+          reason: failed.workflow.failureReason,
+          status,
+        },
+      );
+
+      // Log audit event for workflow failure
+      auditStore.createEvent(
+        "workflow_failed",
+        failed.workflow.id,
+        {
+          reason: failed.workflow.failureReason,
+        },
+      );
 
       return NextResponse.json({
         workflow: failed.workflow,

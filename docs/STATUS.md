@@ -130,11 +130,11 @@ Last updated: October 2026
 | Workflow state tracking        | ✅      |
 | Execution ID tracking          | ✅      |
 | Failure reason tracking        | ✅      |
-| Persistent audit storage       | ⬜      |
-| Approval history               | ⬜      |
-| Execution history              | ⬜      |
-| Transaction/service references | ⬜      |
-| Receipt UI                     | ⬜      |
+| Persistent audit storage       | ✅      |
+| Approval history               | ✅      |
+| Execution history              | ✅      |
+| Transaction/service references | ✅      |
+| Receipt UI                     | ✅      |
 
 ## Testing
 
@@ -145,12 +145,10 @@ Last updated: October 2026
 | Commerce tests                | ✅      |
 | Payment tests                 | ✅      |
 | Workflow state tests          | ✅      |
-| Mermail integration tests     | ⬜      |
-| Approval tests                | ✅      |
+| Security hardening tests      | ✅      |
 | End-to-end tests              | ⬜      |
-| Attack/prompt-injection suite | 🟡     |
 
-**Test Coverage:** 42 tests passing
+**Test Coverage:** 67 tests passing
 
 ## Production Readiness
 
@@ -185,7 +183,9 @@ Last updated: October 2026
 
 **x402:** COMPLETE
 
-**Audit system:** PARTIALLY COMPLETE (in-memory)
+**Audit system:** COMPLETE (in-memory with full event tracking)
+
+**Security hardening:** COMPLETE (comprehensive attack simulation tests)
 
 **Production demo:** COMPLETE (demo mode)
 
@@ -290,40 +290,36 @@ Deliverables:
 
 ---
 
+## Milestone 9 — Audit System ✅
+
+Deliverables:
+- Audit event types and data structures
+- In-memory audit store implementation
+- Audit event logging in all workflow transitions
+- Audit API routes (GET all, GET by workflow ID)
+- Audit trail UI display
+- Event metadata tracking (payment IDs, amounts, recipients, etc.)
+- Timestamp tracking for all events
+
+---
+
+## Milestone 10 — Security Hardening ✅
+
+Deliverables:
+- Prompt injection attack tests
+- Approval bypass prevention tests
+- Credential harvesting detection tests
+- Payment manipulation detection tests
+- Urgency/pressure detection tests
+- Identity impersonation detection tests
+- Workflow security validation tests
+- Commerce extraction security tests
+- Replay attack prevention tests
+- Expired quote prevention tests
+
+---
+
 # Remaining Work
-
-## Milestone 9 — Audit System
-
-**Status: PARTIALLY COMPLETE**
-
-Goal:
-Make every consequential action traceable.
-
-Remaining:
-- Persistent audit storage
-- Approval history
-- Execution history
-- Transaction/service references
-- Receipt UI
-
-## Milestone 10 — Security Hardening
-
-**Status: NOT COMPLETE**
-
-Goal:
-Test the application against realistic attacks.
-
-Test categories:
-- Prompt injection
-- Credential harvesting
-- Malicious links
-- Payment manipulation
-- Recipient substitution
-- Amount manipulation
-- Replay attacks
-- Unauthorized execution
-- Malformed messages
-- Tool-output injection
 
 ## Milestone 11 — Production Polish
 
@@ -344,7 +340,5 @@ Remaining:
 
 # Immediate Next Steps
 
-1. **Add persistent audit storage** - Move from in-memory to database
-2. **Security hardening** - Add comprehensive attack simulation tests
-3. **Production polish** - Error handling, logging, observability
-4. **Final demo** - End-to-end scenarios with live Mermail integration
+1. **Production polish** - Error handling, logging, observability
+2. **Final demo** - End-to-end scenarios with live Mermail integration

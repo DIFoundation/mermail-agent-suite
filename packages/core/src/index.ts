@@ -303,3 +303,11 @@ export type {
 } from "./commerce/extract";
 
 export { decimalToAtomicUnits } from "./payment/units";
+
+export type {
+  AuditEventType,
+  AuditEvent,
+  AuditRecord,
+} from "./audit/types";
+
+export { auditStore } from "./audit/store";

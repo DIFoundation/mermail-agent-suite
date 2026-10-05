@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
+  auditStore,
   beginExecution,
   completeExecution,
   failExecution,
@@ -106,10 +107,33 @@ export async function POST(
 
   saveWorkflow(executionStarted.workflow);
 
+  // Log audit event
+  auditStore.createEvent(
+    "workflow_executed",
+    executionStarted.workflow.id,
+    {
+      recipient: executionStarted.workflow.request.recipient,
+      amount: executionStarted.workflow.request.amount,
+      currency: executionStarted.workflow.request.currency,
+    },
+  );
+
   try {
     const paymentConfig = getPaymentConfig();
 
     const paymentExecutor = new MermailPaymentExecutor(sessionId);
+
+    // Log audit event for payment initiation
+    auditStore.createEvent(
+      "payment_initiated",
+      executionStarted.workflow.id,
+      {
+        recipient: executionStarted.workflow.request.recipient,
+        amount: executionStarted.workflow.request.amount,
+        currency: executionStarted.workflow.request.currency,
+        chain: paymentConfig.chain,
+      },
+    );
 
     const result = await paymentExecutor.execute({
       workflowId: executionStarted.workflow.id,
@@ -142,6 +166,27 @@ export async function POST(
 
     saveWorkflow(completed.workflow);
 
+    // Log audit event for payment settlement
+    auditStore.createEvent(
+      "payment_settled",
+      completed.workflow.id,
+      {
+        executionId: result.executionId,
+        provider: result.provider,
+        amount: executionStarted.workflow.request.amount,
+        currency: executionStarted.workflow.request.currency,
+      },
+    );
+
+    // Log audit event for workflow completion
+    auditStore.createEvent(
+      "workflow_completed",
+      completed.workflow.id,
+      {
+        executionId: result.executionId,
+      },
+    );
+
     return NextResponse.json({
       workflow: completed.workflow,
       payment: result,
@@ -154,6 +199,24 @@ export async function POST(
     );
 
     saveWorkflow(failed.workflow);
+
+    // Log audit event for payment failure
+    auditStore.createEvent(
+      "payment_failed",
+      failed.workflow.id,
+      {
+        reason: failed.workflow.failureReason,
+      },
+    );
+
+    // Log audit event for workflow failure
+    auditStore.createEvent(
+      "workflow_failed",
+      failed.workflow.id,
+      {
+        reason: failed.workflow.failureReason,
+      },
+    );
 
     return NextResponse.json(
       {

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
+  auditStore,
   beginX402Execution,
   completeX402Execution,
   continueOriginalRequest,
@@ -65,6 +66,16 @@ export async function POST(
 
   saveWorkflow(x402Started.workflow);
 
+  // Log audit event for x402 start
+  auditStore.createEvent(
+    "x402_started",
+    x402Started.workflow.id,
+    {
+      url: workflow.request.x402Url,
+      maxAmount: workflow.request.amount,
+    },
+  );
+
   try {
     const x402Request: X402PaymentRequest = {
       url: workflow.request.x402Url,
@@ -83,6 +94,15 @@ export async function POST(
       );
 
       saveWorkflow(failed.workflow);
+
+      // Log audit event for workflow failure
+      auditStore.createEvent(
+        "workflow_failed",
+        failed.workflow.id,
+        {
+          reason: failed.workflow.failureReason,
+        },
+      );
 
       return NextResponse.json(
         {
@@ -104,6 +124,16 @@ export async function POST(
 
     saveWorkflow(x402Completed.workflow);
 
+    // Log audit event for x402 completion
+    auditStore.createEvent(
+      "x402_completed",
+      x402Completed.workflow.id,
+      {
+        paymentId: result.paymentId,
+        url: workflow.request.x402Url,
+      },
+    );
+
     // Continue with the original request
     const continued = continueOriginalRequest(x402Completed.workflow, result.response);
 
@@ -112,6 +142,15 @@ export async function POST(
     }
 
     saveWorkflow(continued.workflow);
+
+    // Log audit event for workflow completion
+    auditStore.createEvent(
+      "workflow_completed",
+      continued.workflow.id,
+      {
+        executionId: continued.workflow.executionId,
+      },
+    );
 
     return NextResponse.json({
       workflow: continued.workflow,
@@ -126,6 +165,15 @@ export async function POST(
     );
 
     saveWorkflow(failed.workflow);
+
+    // Log audit event for workflow failure
+    auditStore.createEvent(
+      "workflow_failed",
+      failed.workflow.id,
+      {
+        reason: failed.workflow.failureReason,
+      },
+    );
 
     return NextResponse.json(
       {

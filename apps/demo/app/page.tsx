@@ -57,6 +57,14 @@ type Payment = {
   workflowId: string;
 };
 
+type AuditEvent = {
+  id: string;
+  timestamp: string;
+  eventType: string;
+  workflowId: string;
+  metadata: Record<string, unknown>;
+};
+
 function Badge({ decision }: { decision: Decision }) {
   return (
     <span className={`badge badge-${decision}`}>
@@ -70,6 +78,7 @@ export default function Home() {
   const [selected, setSelected] = useState<Message | null>(null);
   const [workflow, setWorkflow] = useState<Workflow | null>(null);
   const [payment, setPayment] = useState<Payment | null>(null);
+  const [auditEvents, setAuditEvents] = useState<AuditEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [approving, setApproving] = useState(false);
@@ -84,6 +93,19 @@ export default function Home() {
       })
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    if (workflow) {
+      fetch(`/api/audit/${workflow.request.id}`)
+        .then((response) => response.json())
+        .then((data) => {
+          setAuditEvents(data.events || []);
+        })
+        .catch(() => setAuditEvents([]));
+    } else {
+      setAuditEvents([]);
+    }
+  }, [workflow]);
 
   async function createCommerceRequest() {
     if (!selected) return;
@@ -616,6 +638,32 @@ export default function Home() {
                             Authoritative execution ID:{" "}
                             {payment?.executionId}
                           </span>
+                        </div>
+                      )}
+
+                      {auditEvents.length > 0 && (
+                        <div className="audit-trail">
+                          <h3>Audit Trail</h3>
+                          {auditEvents.map((event) => (
+                            <div key={event.id} className="audit-event">
+                              <div className="audit-header">
+                                <span className="audit-type">
+                                  {event.eventType.replace(/_/g, " ")}
+                                </span>
+                                <span className="audit-time">
+                                  {new Date(event.timestamp).toLocaleTimeString()}
+                                </span>
+                              </div>
+                              <div className="audit-details">
+                                {Object.entries(event.metadata).map(([key, value]) => (
+                                  <div key={key} className="audit-detail">
+                                    <span>{key}:</span>
+                                    <span>{String(value)}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
                         </div>
                       )}
                     </div>

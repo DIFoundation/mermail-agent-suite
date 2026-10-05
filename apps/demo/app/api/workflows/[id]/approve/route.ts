@@ -1,3 +1,4 @@
+import { auditStore } from "@mermail-agent-suite/core";
 import { approveWorkflow } from "../../../../../lib/workflows";
 
 export async function POST(
@@ -15,6 +16,18 @@ export async function POST(
       currency: body.currency,
       purpose: body.purpose,
     });
+
+    // Log audit event
+    auditStore.createEvent(
+      "workflow_approved",
+      workflow.id,
+      {
+        recipient: body.recipient,
+        amount: body.amount,
+        currency: body.currency,
+        purpose: body.purpose,
+      },
+    );
 
     return Response.json(workflow);
   } catch (error) {
