@@ -176,10 +176,12 @@ export function extractCommerceRequest(input: {
     };
   }
 
+  const isX402 = detectX402(text);
+
   const paymentIntent =
     /\b(pay|payment|payable|invoice|bill|transfer|send\s+funds|purchase|buy)\b/i.test(
       text,
-    );
+    ) || isX402;
 
   if (!paymentIntent) {
     return {
@@ -193,7 +195,6 @@ export function extractCommerceRequest(input: {
   const recipient = extractRecipient(text);
   const service = extractService(text);
   const purpose = extractPurpose(text);
-  const isX402 = detectX402(text);
   const x402Url = isX402 ? extractUrl(text) : undefined;
 
   const missingFields: ExtractedCommerceRequest["missingFields"] = [];

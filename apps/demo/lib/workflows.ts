@@ -55,6 +55,8 @@ export function createWorkflow(input: {
 }) {
   const id = `req-${crypto.randomUUID()}`;
 
+  const purpose = input.purpose ?? (input.isX402 ? "x402 API payment" : "payment");
+
   const result = createCommerceWorkflow({
     id,
     sourceMessageId: input.sourceMessageId,
@@ -62,7 +64,7 @@ export function createWorkflow(input: {
     recipient: input.recipient,
     amount: input.amount,
     currency: input.currency,
-    purpose: input.purpose ?? (input.isX402 ? "x402 API payment" : "payment"),
+    purpose,
     network: input.network ?? "demo",
     sentinelDecision: input.sentinel.decision,
     sentinelRiskScore: input.sentinel.riskScore,
@@ -82,7 +84,7 @@ export function createWorkflow(input: {
     recipient: input.recipient,
     amount: input.amount,
     currency: input.currency,
-    purpose: input.purpose,
+    purpose,
     network: input.network ?? "demo",
     expiresAt: new Date(
       Date.now() + 15 * 60 * 1000,
