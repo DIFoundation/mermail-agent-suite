@@ -47,7 +47,7 @@ export function createWorkflow(input: {
   recipient: string;
   amount: string;
   currency: string;
-  purpose: string;
+  purpose?: string; // Optional for x402
   sentinel: SentinelResult;
   network?: string;
   isX402?: boolean;
@@ -62,7 +62,7 @@ export function createWorkflow(input: {
     recipient: input.recipient,
     amount: input.amount,
     currency: input.currency,
-    purpose: input.purpose,
+    purpose: input.purpose ?? (input.isX402 ? "x402 API payment" : "payment"),
     network: input.network ?? "demo",
     sentinelDecision: input.sentinel.decision,
     sentinelRiskScore: input.sentinel.riskScore,

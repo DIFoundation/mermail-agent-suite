@@ -160,25 +160,21 @@ h1 {
   font-size: 13px;
 }
 
-.message-subject,
-.message-preview {
-  display: block;
-}
-
 .message-subject {
+  display: block;
   margin-bottom: 5px;
   font-size: 13px;
 }
 
 .message-preview {
-  overflow: hidden;
+  display: block;
   color: #71717a;
   font-size: 12px;
   line-height: 1.5;
-  display: -webkit-box;
   -webkit-line-clamp: 2;
-  line-clamp: 2;
   -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .badge {

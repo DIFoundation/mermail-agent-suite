@@ -65,9 +65,11 @@ export async function POST(
       recipient: extraction.recipient!,
       amount: extraction.amount!,
       currency: extraction.currency!,
-      purpose: extraction.purpose!,
+      purpose: extraction.purpose,
       sentinel,
       network: "demo",
+      isX402: extraction.isX402,
+      x402Url: extraction.x402Url,
     });
 
     return Response.json(

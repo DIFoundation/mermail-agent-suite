@@ -21,6 +21,8 @@ export interface ExtractedCommerceRequest {
   };
   isX402?: boolean;
   x402Url?: string;
+  // For x402, the URL itself can serve as the "recipient" (the paid endpoint)
+  x402Endpoint?: string;
 }
 
 const CURRENCY_PATTERN =
@@ -197,26 +199,33 @@ export function extractCommerceRequest(input: {
   const missingFields: ExtractedCommerceRequest["missingFields"] = [];
 
   if (!service) missingFields.push("service");
-  if (!recipient.recipient) missingFields.push("recipient");
+  // For x402, the URL serves as the recipient (the paid endpoint)
+  if (isX402) {
+    if (!x402Url) missingFields.push("recipient");
+  } else {
+    if (!recipient.recipient) missingFields.push("recipient");
+  }
   if (!amount.amount) missingFields.push("amount");
   if (!amount.currency) missingFields.push("currency");
-  if (!purpose) missingFields.push("purpose");
+  // Purpose is optional for x402 since the URL endpoint defines the service
+  if (!purpose && !isX402) missingFields.push("purpose");
 
   return {
     status: missingFields.length === 0 ? "MATCHED" : "INCOMPLETE",
     service,
-    recipient: recipient.recipient,
+    recipient: isX402 ? x402Url : recipient.recipient,
     amount: amount.amount,
     currency: amount.currency,
     purpose,
     missingFields,
     evidence: {
       amount: amount.evidence,
-      recipient: recipient.evidence,
+      recipient: isX402 ? x402Url : recipient.evidence,
       service,
       purpose,
     },
     isX402,
     x402Url,
+    x402Endpoint: x402Url,
   };
 }
