@@ -149,14 +149,33 @@ export class MermailPaymentExecutor implements PaymentExecutor {
         );
       }
 
+      // Map PayBox statuses to our internal statuses
+      const pendingStates = [
+        "pending_approval",
+        "pending_signature",
+        "pending_confirmation",
+        "pending_settlement",
+      ];
+
+      const successStates = ["success", "completed", "settled"];
+
+      const failedStates = ["denied", "error", "failed"];
+
+      let normalizedStatus: "PENDING" | "SETTLED" | "FAILED" | "UNKNOWN";
+
+      if (pendingStates.includes(status ?? "")) {
+        normalizedStatus = "PENDING";
+      } else if (successStates.includes(status ?? "")) {
+        normalizedStatus = "SETTLED";
+      } else if (failedStates.includes(status ?? "")) {
+        normalizedStatus = "FAILED";
+      } else {
+        normalizedStatus = "UNKNOWN";
+      }
+
       return {
         executionId: requestId,
-        status:
-          status === "pending_signature" || status === "pending_approval"
-            ? "PENDING"
-            : status === "completed" || status === "settled"
-              ? "SETTLED"
-              : "SUBMITTED",
+        status: normalizedStatus,
         provider: "mermail-paybox",
         metadata: {
           mermailRequestId: requestId,

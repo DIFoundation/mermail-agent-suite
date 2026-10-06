@@ -46,7 +46,7 @@ export interface X402PaymentRequest {
   method?: string;
   headers?: Record<string, string>;
   body?: string;
-  maxAmount?: number;
+  maxAmount?: string; // Changed from number to string for exact decimal handling
   paymentNetwork?: string;
   paymentProtocol?: string;
 }

@@ -9,22 +9,37 @@ import { getMermailPaymentStatus } from "../../../../../lib/mermail-payment-stat
 
 function isTerminalSuccess(status: unknown) {
   return (
-    status === "completed" ||
-    status === "settled" ||
-    status === "confirmed" ||
     status === "success" ||
-    status === "SUCCESS"
+    status === "completed" ||
+    status === "settled"
   );
 }
 
 function isTerminalFailure(status: unknown) {
   return (
-    status === "failed" ||
-    status === "rejected" ||
-    status === "cancelled" ||
-    status === "canceled" ||
-    status === "FAILED"
+    status === "denied" ||
+    status === "error" ||
+    status === "failed"
   );
+}
+
+function isPending(status: unknown) {
+  return (
+    status === "pending_approval" ||
+    status === "pending_signature" ||
+    status === "pending_confirmation" ||
+    status === "pending_settlement"
+  );
+}
+
+function getPayBoxStatus(value: unknown): string | undefined {
+  if (!value || typeof value !== "object") {
+    return undefined;
+  }
+
+  const status = (value as { status?: unknown }).status;
+
+  return typeof status === "string" ? status : undefined;
 }
 
 export async function POST(
@@ -75,7 +90,7 @@ export async function POST(
       workflow.executionId,
     );
 
-    const status = paymentStatus;
+    const status = getPayBoxStatus(paymentStatus);
 
     if (!status) {
       return NextResponse.json(
@@ -151,6 +166,19 @@ export async function POST(
         paymentStatus,
         status: "FAILED",
       });
+    }
+
+    // Handle unknown statuses safely - treat as pending but log warning
+    if (!isPending(status)) {
+      return NextResponse.json(
+        {
+          workflow,
+          paymentStatus,
+          status: "PENDING",
+          warning: `Unknown PayBox status: ${status}. Treating as pending.`,
+        },
+        { status: 200 },
+      );
     }
 
     // Still pending

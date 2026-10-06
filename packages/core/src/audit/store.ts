@@ -4,6 +4,18 @@ import type {
   AuditRecord,
 } from "./types";
 
+// Optional persistence callbacks - can be set by the application
+let persistRecord: ((record: AuditRecord) => void) | null = null;
+let loadRecord: ((workflowId: string) => AuditRecord | undefined) | null = null;
+
+export function setAuditPersistence(
+  persist: (record: AuditRecord) => void,
+  load: (workflowId: string) => AuditRecord | undefined,
+) {
+  persistRecord = persist;
+  loadRecord = load;
+}
+
 class AuditStore {
   private records = new Map<string, AuditRecord>();
 
@@ -30,6 +42,14 @@ class AuditStore {
   private addEvent(event: AuditEvent): void {
     let record = this.records.get(event.workflowId);
 
+    // Try loading from disk if not in memory and persistence is configured
+    if (!record && loadRecord) {
+      record = loadRecord(event.workflowId);
+      if (record) {
+        this.records.set(event.workflowId, record);
+      }
+    }
+
     if (!record) {
       record = {
         workflowId: event.workflowId,
@@ -42,10 +62,25 @@ class AuditStore {
 
     record.events.push(event);
     record.updatedAt = event.timestamp;
+
+    // Persist to disk if configured
+    if (persistRecord) {
+      persistRecord(record);
+    }
   }
 
   getRecord(workflowId: string): AuditRecord | undefined {
-    return this.records.get(workflowId);
+    let record = this.records.get(workflowId);
+
+    // Try loading from disk if not in memory and persistence is configured
+    if (!record && loadRecord) {
+      record = loadRecord(workflowId);
+      if (record) {
+        this.records.set(workflowId, record);
+      }
+    }
+
+    return record;
   }
 
   getAllRecords(): AuditRecord[] {
@@ -53,7 +88,8 @@ class AuditStore {
   }
 
   getEvents(workflowId: string): AuditEvent[] {
-    return this.records.get(workflowId)?.events ?? [];
+    const record = this.getRecord(workflowId);
+    return record?.events ?? [];
   }
 
   clear(): void {

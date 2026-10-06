@@ -19,7 +19,7 @@ export interface PaymentExecutionRequest {
 
 export interface PaymentExecutionResult {
   executionId: string;
-  status: "SUBMITTED" | "PENDING" | "SETTLED" | "FAILED";
+  status: "SUBMITTED" | "PENDING" | "SETTLED" | "FAILED" | "UNKNOWN";
   provider: string;
   metadata?: Record<string, unknown>;
 }

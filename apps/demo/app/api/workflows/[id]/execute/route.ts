@@ -148,10 +148,66 @@ export async function POST(
     });
 
     if (result.status === "PENDING") {
+      const pendingWorkflow = saveWorkflow({
+        ...executionStarted.workflow,
+        executionId: result.executionId,
+        updatedAt: new Date().toISOString(),
+      });
+
       return NextResponse.json({
-        workflow: executionStarted.workflow,
+        workflow: pendingWorkflow,
         payment: result,
         status: "PENDING",
+      });
+    }
+
+    if (result.status === "FAILED") {
+      const failed = failExecution(
+        executionStarted.workflow,
+        `Payment execution failed with PayBox status: ${(result.metadata as any)?.payboxStatus || "unknown"}`,
+      );
+
+      saveWorkflow(failed.workflow);
+
+      // Log audit event for payment failure
+      auditStore.createEvent(
+        "payment_failed",
+        failed.workflow.id,
+        {
+          reason: failed.workflow.failureReason,
+          executionId: result.executionId,
+        },
+      );
+
+      // Log audit event for workflow failure
+      auditStore.createEvent(
+        "workflow_failed",
+        failed.workflow.id,
+        {
+          reason: failed.workflow.failureReason,
+        },
+      );
+
+      return NextResponse.json({
+        workflow: failed.workflow,
+        payment: result,
+        status: "FAILED",
+      });
+    }
+
+    if (result.status === "UNKNOWN") {
+      // Treat unknown as pending but save the executionId
+      const pendingWorkflow = saveWorkflow({
+        ...executionStarted.workflow,
+        executionId: result.executionId,
+        updatedAt: new Date().toISOString(),
+      });
+
+      return NextResponse.json({
+        workflow: pendingWorkflow,
+        payment: result,
+        status: "PENDING",
+        warning: `Unknown PayBox status: ${(result.metadata as any)?.payboxStatus || "unknown"}. Treating as pending.`,
       });
     }
 

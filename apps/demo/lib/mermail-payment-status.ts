@@ -59,9 +59,9 @@ export async function getMermailPaymentStatus(
     await client.connect(transport);
 
     const result = await client.callTool({
-      name: "get_agent_wallet_request",
+      name: "paybox_get_request",
       arguments: {
-        requestId,
+        request_id: requestId,
       },
     });
 

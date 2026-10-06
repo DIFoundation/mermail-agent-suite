@@ -5,11 +5,36 @@ import {
   type CommerceWorkflow,
   type SentinelResult,
 } from "@mermail-agent-suite/core";
+import {
+  loadWorkflow,
+  saveWorkflowToDisk,
+} from "./storage";
 
 const workflows = new Map<string, CommerceWorkflow>();
 
+// Initialize workflows from disk on startup
+function initializeWorkflows() {
+  // In production, you'd scan the data directory and load all workflows
+  // For now, we'll start with an empty in-memory cache
+}
+
+initializeWorkflows();
+
 export function getWorkflow(id: string) {
-  return workflows.get(id);
+  // First check in-memory cache
+  const cached = workflows.get(id);
+  if (cached) {
+    return cached;
+  }
+
+  // If not in cache, try loading from disk
+  const loaded = loadWorkflow(id);
+  if (loaded) {
+    workflows.set(id, loaded);
+    return loaded;
+  }
+
+  return null;
 }
 
 export function listWorkflows() {
@@ -69,6 +94,7 @@ export function createWorkflow(input: {
   }
 
   workflows.set(id, quoted.workflow);
+  saveWorkflowToDisk(quoted.workflow);
 
   return quoted.workflow;
 }
@@ -82,7 +108,7 @@ export function approveWorkflow(
     purpose: string;
   },
 ) {
-  const workflow = workflows.get(id);
+  const workflow = getWorkflow(id);
 
   if (!workflow) {
     throw new Error("Workflow not found");
@@ -98,11 +124,13 @@ export function approveWorkflow(
   }
 
   workflows.set(id, result.workflow);
+  saveWorkflowToDisk(result.workflow);
 
   return result.workflow;
 }
 
 export function saveWorkflow(workflow: CommerceWorkflow) {
   workflows.set(workflow.id, workflow);
+  saveWorkflowToDisk(workflow);
   return workflow;
 }

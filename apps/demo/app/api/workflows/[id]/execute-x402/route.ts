@@ -4,6 +4,7 @@ import {
   beginX402Execution,
   completeX402Execution,
   continueOriginalRequest,
+  decimalToAtomicUnits,
   failExecution,
 } from "@mermail-agent-suite/core";
 import { getWorkflow, saveWorkflow } from "../../../../../lib/workflows";
@@ -77,10 +78,13 @@ export async function POST(
   );
 
   try {
+    // Use exact decimal conversion for x402 amount (USDC has 6 decimals)
+    const atomicAmount = decimalToAtomicUnits(workflow.request.amount, 6);
+
     const x402Request: X402PaymentRequest = {
       url: workflow.request.x402Url,
       method: "POST",
-      maxAmount: parseFloat(workflow.request.amount),
+      maxAmount: atomicAmount,
     };
 
     const executor = new X402Executor(sessionId);

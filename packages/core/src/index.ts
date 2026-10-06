@@ -310,4 +310,4 @@ export type {
   AuditRecord,
 } from "./audit/types";
 
-export { auditStore } from "./audit/store";
+export { auditStore, setAuditPersistence } from "./audit/store";
