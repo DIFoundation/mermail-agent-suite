@@ -7,24 +7,34 @@ import {
 import { getWorkflow, saveWorkflow } from "../../../../../lib/workflows";
 import { getMermailPaymentStatus } from "../../../../../lib/mermail-payment-status";
 
-function isTerminalSuccess(status: unknown) {
-  return (
-    status === "success" ||
-    status === "completed" ||
-    status === "settled"
-  );
+function getPayBoxStatus(value: unknown): string | undefined {
+  if (!value || typeof value !== "object") {
+    return undefined;
+  }
+
+  const status = (
+    value as {
+      status?: unknown;
+    }
+  ).status;
+
+  return typeof status === "string" ? status : undefined;
 }
 
-function isTerminalFailure(status: unknown) {
-  return (
-    status === "denied" ||
-    status === "error" ||
-    status === "failed"
-  );
+function isTerminalSuccess(status: string): boolean {
+  /*
+   * Current PayBox terminal success.
+   */
+  return status === "success";
 }
 
-function isPending(status: unknown) {
+function isTerminalFailure(status: string): boolean {
+  return status === "denied" || status === "error";
+}
+
+function isPending(status: string): boolean {
   return (
+    status === "pending_execution" ||
     status === "pending_approval" ||
     status === "pending_signature" ||
     status === "pending_confirmation" ||
@@ -32,14 +42,8 @@ function isPending(status: unknown) {
   );
 }
 
-function getPayBoxStatus(value: unknown): string | undefined {
-  if (!value || typeof value !== "object") {
-    return undefined;
-  }
-
-  const status = (value as { status?: unknown }).status;
-
-  return typeof status === "string" ? status : undefined;
+function isRecoveryRequired(status: string): boolean {
+  return status === "recovery_required";
 }
 
 export async function POST(
@@ -53,7 +57,12 @@ export async function POST(
   const workflow = getWorkflow(id);
 
   if (!workflow) {
-    return NextResponse.json({ error: "Workflow not found" }, { status: 404 });
+    return NextResponse.json(
+      {
+        error: "Workflow not found",
+      },
+      { status: 404 },
+    );
   }
 
   if (workflow.status !== "EXECUTING") {
@@ -68,7 +77,9 @@ export async function POST(
 
   if (!workflow.executionId) {
     return NextResponse.json(
-      { error: "Workflow has no execution ID" },
+      {
+        error: "Workflow has no execution ID",
+      },
       { status: 400 },
     );
   }
@@ -94,38 +105,38 @@ export async function POST(
 
     if (!status) {
       return NextResponse.json(
-        { error: "Payment status not available" },
+        {
+          error: "Payment status not available",
+        },
         { status: 502 },
       );
     }
 
+    /*
+     * Explicit terminal success only.
+     */
     if (isTerminalSuccess(status)) {
       const completed = completeExecution(workflow, workflow.executionId);
 
       if (!completed.ok) {
-        return NextResponse.json({ error: completed.error }, { status: 500 });
+        return NextResponse.json(
+          {
+            error: completed.error,
+          },
+          { status: 500 },
+        );
       }
 
       saveWorkflow(completed.workflow);
 
-      // Log audit event for payment settlement
-      auditStore.createEvent(
-        "payment_settled",
-        completed.workflow.id,
-        {
-          executionId: completed.workflow.executionId,
-          status,
-        },
-      );
+      auditStore.createEvent("payment_settled", completed.workflow.id, {
+        executionId: completed.workflow.executionId,
+        status,
+      });
 
-      // Log audit event for workflow completion
-      auditStore.createEvent(
-        "workflow_completed",
-        completed.workflow.id,
-        {
-          executionId: completed.workflow.executionId,
-        },
-      );
+      auditStore.createEvent("workflow_completed", completed.workflow.id, {
+        executionId: completed.workflow.executionId,
+      });
 
       return NextResponse.json({
         workflow: completed.workflow,
@@ -134,6 +145,9 @@ export async function POST(
       });
     }
 
+    /*
+     * Explicit terminal failure.
+     */
     if (isTerminalFailure(status)) {
       const failed = failExecution(
         workflow,
@@ -142,24 +156,14 @@ export async function POST(
 
       saveWorkflow(failed.workflow);
 
-      // Log audit event for payment failure
-      auditStore.createEvent(
-        "payment_failed",
-        failed.workflow.id,
-        {
-          reason: failed.workflow.failureReason,
-          status,
-        },
-      );
+      auditStore.createEvent("payment_failed", failed.workflow.id, {
+        reason: failed.workflow.failureReason,
+        status,
+      });
 
-      // Log audit event for workflow failure
-      auditStore.createEvent(
-        "workflow_failed",
-        failed.workflow.id,
-        {
-          reason: failed.workflow.failureReason,
-        },
-      );
+      auditStore.createEvent("workflow_failed", failed.workflow.id, {
+        reason: failed.workflow.failureReason,
+      });
 
       return NextResponse.json({
         workflow: failed.workflow,
@@ -168,29 +172,65 @@ export async function POST(
       });
     }
 
-    // Handle unknown statuses safely - treat as pending but log warning
-    if (!isPending(status)) {
-      return NextResponse.json(
-        {
-          workflow,
-          paymentStatus,
-          status: "PENDING",
-          warning: `Unknown PayBox status: ${status}. Treating as pending.`,
-        },
-        { status: 200 },
+    /*
+     * PayBox explicitly requires owner recovery.
+     *
+     * Do not call this ordinary pending.
+     */
+    if (isRecoveryRequired(status)) {
+      const failed = failExecution(
+        workflow,
+        "PayBox requires recovery or owner intervention.",
       );
+
+      saveWorkflow(failed.workflow);
+
+      auditStore.createEvent("payment_failed", failed.workflow.id, {
+        reason: failed.workflow.failureReason,
+        status,
+      });
+
+      return NextResponse.json({
+        workflow: failed.workflow,
+        paymentStatus,
+        status: "RECOVERY_REQUIRED",
+      });
     }
 
-    // Still pending
-    return NextResponse.json({
-      workflow,
-      paymentStatus,
-      status: "PENDING",
-    });
+    /*
+     * Known pending states.
+     */
+    if (isPending(status)) {
+      return NextResponse.json({
+        workflow,
+        paymentStatus,
+        status: "PENDING",
+      });
+    }
+
+    /*
+     * SECURITY IMPORTANT:
+     *
+     * Unknown provider states must NOT become
+     * PENDING and must definitely not become
+     * COMPLETED.
+     */
+    return NextResponse.json(
+      {
+        error: `Unknown PayBox status: ${status}`,
+        workflow,
+        paymentStatus,
+        status: "UNKNOWN",
+      },
+      { status: 502 },
+    );
   } catch (error) {
     return NextResponse.json(
       {
-        error: error instanceof Error ? error.message : "Payment status check failed",
+        error:
+          error instanceof Error
+            ? error.message
+            : "Payment status check failed",
       },
       { status: 502 },
     );

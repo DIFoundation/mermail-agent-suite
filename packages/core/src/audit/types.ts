@@ -6,6 +6,8 @@ export type AuditEventType =
   | "workflow_completed"
   | "workflow_failed"
   | "x402_started"
+  | "x402_pending"
+  | "x402_proof_ready"
   | "x402_completed"
   | "payment_initiated"
   | "payment_settled"

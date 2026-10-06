@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   auditStore,
   beginX402Execution,
-  completeX402Execution,
-  continueOriginalRequest,
   decimalToAtomicUnits,
   failExecution,
 } from "@mermail-agent-suite/core";
@@ -36,14 +34,18 @@ export async function POST(
 
   if (!workflow.request.isX402) {
     return NextResponse.json(
-      { error: "This workflow is not an x402 request" },
+      {
+        error: "This workflow is not an x402 request",
+      },
       { status: 400 },
     );
   }
 
   if (!workflow.request.x402Url) {
     return NextResponse.json(
-      { error: "x402 URL is required" },
+      {
+        error: "x402 URL is required",
+      },
       { status: 400 },
     );
   }
@@ -59,30 +61,35 @@ export async function POST(
     );
   }
 
-  const x402Started = beginX402Execution(workflow);
+  const started = beginX402Execution(workflow);
 
-  if (!x402Started.ok) {
-    return NextResponse.json({ error: x402Started.error }, { status: 409 });
+  if (!started.ok) {
+    return NextResponse.json({ error: started.error }, { status: 409 });
   }
 
-  saveWorkflow(x402Started.workflow);
+  saveWorkflow(started.workflow);
 
-  // Log audit event for x402 start
-  auditStore.createEvent(
-    "x402_started",
-    x402Started.workflow.id,
-    {
-      url: workflow.request.x402Url,
-      maxAmount: workflow.request.amount,
-    },
-  );
+  auditStore.createEvent("x402_started", started.workflow.id, {
+    url: started.workflow.request.x402Url,
+    maxAmount: started.workflow.request.amount,
+  });
 
   try {
-    // Use exact decimal conversion for x402 amount (USDC has 6 decimals)
-    const atomicAmount = decimalToAtomicUnits(workflow.request.amount, 6);
+    /*
+     * Keep exact decimal handling.
+     *
+     * NOTE:
+     * This assumes the selected x402 asset uses
+     * 6 decimals. Do not silently generalize this
+     * to arbitrary assets.
+     */
+    const atomicAmount = decimalToAtomicUnits(
+      started.workflow.request.amount,
+      6,
+    );
 
     const x402Request: X402PaymentRequest = {
-      url: workflow.request.x402Url,
+      url: started.workflow.request.x402Url,
       method: "POST",
       maxAmount: atomicAmount,
     };
@@ -91,93 +98,115 @@ export async function POST(
 
     const result = await executor.execute(x402Request);
 
-    if (!result.success) {
+    /*
+     * PayBox has not produced a usable proof yet.
+     */
+    if (result.status === "PENDING") {
+      const pendingWorkflow = saveWorkflow({
+        ...started.workflow,
+        executionId: result.requestId,
+        updatedAt: new Date().toISOString(),
+      });
+
+      auditStore.createEvent("x402_pending", pendingWorkflow.id, {
+        requestId: result.requestId,
+      });
+
+      return NextResponse.json({
+        workflow: pendingWorkflow,
+        status: "PENDING",
+        requestId: result.requestId,
+      });
+    }
+
+    /*
+     * PayBox failure.
+     */
+    if (result.status === "FAILED") {
       const failed = failExecution(
-        x402Started.workflow,
-        result.error || "x402 payment failed",
+        started.workflow,
+        result.error ?? "x402 PayBox request failed",
       );
 
       saveWorkflow(failed.workflow);
 
-      // Log audit event for workflow failure
-      auditStore.createEvent(
-        "workflow_failed",
-        failed.workflow.id,
-        {
-          reason: failed.workflow.failureReason,
-        },
-      );
+      auditStore.createEvent("workflow_failed", failed.workflow.id, {
+        reason: failed.workflow.failureReason,
+      });
 
       return NextResponse.json(
         {
           error: failed.workflow.failureReason,
           workflow: failed.workflow,
+          status: "FAILED",
         },
         { status: 502 },
       );
     }
 
-    const x402Completed = completeX402Execution(
-      x402Started.workflow,
-      result.paymentId || "unknown",
-    );
+    /*
+     * IMPORTANT:
+     *
+     * PROOF_READY is NOT settlement.
+     *
+     * We intentionally stop here rather than
+     * falsely marking the workflow COMPLETED.
+     *
+     * The exact x402 proof must be redeemed
+     * against the frozen endpoint using that
+     * endpoint's actual protocol/header contract.
+     */
+    if (result.status === "PROOF_READY") {
+      const proofWorkflow = saveWorkflow({
+        ...started.workflow,
+        executionId: result.requestId ?? result.paymentId,
+        status: "X402_PENDING",
+        updatedAt: new Date().toISOString(),
+      });
 
-    if (!x402Completed.ok) {
-      return NextResponse.json({ error: x402Completed.error }, { status: 500 });
-    }
-
-    saveWorkflow(x402Completed.workflow);
-
-    // Log audit event for x402 completion
-    auditStore.createEvent(
-      "x402_completed",
-      x402Completed.workflow.id,
-      {
+      auditStore.createEvent("x402_proof_ready", proofWorkflow.id, {
+        requestId: result.requestId,
         paymentId: result.paymentId,
-        url: workflow.request.x402Url,
-      },
-    );
+        url: proofWorkflow.request.x402Url,
+      });
 
-    // Continue with the original request
-    const continued = continueOriginalRequest(x402Completed.workflow, result.response);
-
-    if (!continued.ok) {
-      return NextResponse.json({ error: continued.error }, { status: 500 });
+      return NextResponse.json({
+        workflow: proofWorkflow,
+        status: "PROOF_READY",
+        requestId: result.requestId,
+        message:
+          "x402 payment proof is ready. Merchant redemption and settlement are not yet confirmed.",
+      });
     }
 
-    saveWorkflow(continued.workflow);
-
-    // Log audit event for workflow completion
-    auditStore.createEvent(
-      "workflow_completed",
-      continued.workflow.id,
-      {
-        executionId: continued.workflow.executionId,
-      },
+    /*
+     * Defensive fallback.
+     */
+    const failed = failExecution(
+      started.workflow,
+      "Unhandled x402 execution state.",
     );
 
-    return NextResponse.json({
-      workflow: continued.workflow,
-      x402Response: result.response,
-      paymentId: result.paymentId,
-      status: "COMPLETED",
-    });
+    saveWorkflow(failed.workflow);
+
+    return NextResponse.json(
+      {
+        error: failed.workflow.failureReason,
+        workflow: failed.workflow,
+      },
+      { status: 502 },
+    );
   } catch (error) {
     const failed = failExecution(
-      x402Started.workflow,
+      started.workflow,
       error instanceof Error ? error.message : "x402 execution failed",
     );
 
     saveWorkflow(failed.workflow);
 
-    // Log audit event for workflow failure
-    auditStore.createEvent(
-      "workflow_failed",
-      failed.workflow.id,
-      {
-        reason: failed.workflow.failureReason,
-      },
-    );
+    auditStore.createEvent("workflow_failed", failed.workflow.id, {
+      reason: failed.workflow.failureReason,
+    });
 
     return NextResponse.json(
       {

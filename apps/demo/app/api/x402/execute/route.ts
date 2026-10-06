@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
 
     const result = await executor.execute(body);
 
-    if (!result.success) {
+    if (!result.status || result.status === "FAILED") {
       return NextResponse.json(
         { error: result.error },
         { status: 502 },

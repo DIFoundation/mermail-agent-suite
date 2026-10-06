@@ -225,17 +225,23 @@ export default function Home() {
     console.log("execute complete:", data);
 
     if (workflow.request.isX402) {
-      setNotice(`x402 payment completed: ${data.paymentId}`);
+      setNotice(
+        data.status === "PROOF_READY"
+          ? "x402 payment proof created. Merchant redemption is not yet confirmed."
+          : "x402 payment is still pending.",
+      );
       setWorkflow(data.workflow);
       setPayment({
-        executionId: data.paymentId,
-        status: "SETTLED",
+        executionId: data.requestId ?? "",
+        status: data.status,
         amount: workflow.request.amount,
         currency: workflow.request.currency,
         recipient: workflow.request.recipient,
         purpose: workflow.request.purpose,
         workflowId: workflow.request.id,
       });
+
+      return;
     } else {
       setPayment(data.payment);
 

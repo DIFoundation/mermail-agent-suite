@@ -7,30 +7,24 @@ import {
 } from "@mermail-agent-suite/core";
 import {
   loadWorkflow,
+  listPersistedWorkflows,
   saveWorkflowToDisk,
 } from "./storage";
 
 const workflows = new Map<string, CommerceWorkflow>();
 
-// Initialize workflows from disk on startup
-function initializeWorkflows() {
-  // In production, you'd scan the data directory and load all workflows
-  // For now, we'll start with an empty in-memory cache
-}
-
-initializeWorkflows();
-
 export function getWorkflow(id: string) {
-  // First check in-memory cache
   const cached = workflows.get(id);
+
   if (cached) {
     return cached;
   }
 
-  // If not in cache, try loading from disk
   const loaded = loadWorkflow(id);
+
   if (loaded) {
     workflows.set(id, loaded);
+
     return loaded;
   }
 
@@ -38,7 +32,24 @@ export function getWorkflow(id: string) {
 }
 
 export function listWorkflows() {
-  return [...workflows.values()];
+  /*
+   * First load every persisted workflow
+   * that isn't already in memory.
+   */
+  const persisted = listPersistedWorkflows();
+
+  for (const workflow of persisted) {
+    if (!workflows.has(workflow.id)) {
+      workflows.set(workflow.id, workflow);
+    }
+  }
+
+  /*
+   * Return one copy of every workflow.
+   */
+  return Array.from(workflows.values()).sort(
+    (a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt),
+  );
 }
 
 export function createWorkflow(input: {
@@ -47,7 +58,7 @@ export function createWorkflow(input: {
   recipient: string;
   amount: string;
   currency: string;
-  purpose?: string; // Optional for x402
+  purpose?: string;
   sentinel: SentinelResult;
   network?: string;
   isX402?: boolean;
@@ -55,7 +66,8 @@ export function createWorkflow(input: {
 }) {
   const id = `req-${crypto.randomUUID()}`;
 
-  const purpose = input.purpose ?? (input.isX402 ? "x402 API payment" : "payment");
+  const purpose =
+    input.purpose ?? (input.isX402 ? "x402 API payment" : "payment");
 
   const result = createCommerceWorkflow({
     id,
@@ -86,9 +98,7 @@ export function createWorkflow(input: {
     currency: input.currency,
     purpose,
     network: input.network ?? "demo",
-    expiresAt: new Date(
-      Date.now() + 15 * 60 * 1000,
-    ).toISOString(),
+    expiresAt: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
   });
 
   if (!quoted.ok) {
@@ -96,6 +106,7 @@ export function createWorkflow(input: {
   }
 
   workflows.set(id, quoted.workflow);
+
   saveWorkflowToDisk(quoted.workflow);
 
   return quoted.workflow;
@@ -126,6 +137,7 @@ export function approveWorkflow(
   }
 
   workflows.set(id, result.workflow);
+
   saveWorkflowToDisk(result.workflow);
 
   return result.workflow;
@@ -133,6 +145,8 @@ export function approveWorkflow(
 
 export function saveWorkflow(workflow: CommerceWorkflow) {
   workflows.set(workflow.id, workflow);
+
   saveWorkflowToDisk(workflow);
+
   return workflow;
 }
