@@ -114,34 +114,32 @@ export default function Home() {
     setNotice("");
 
     try {
-      const response = await fetch("/api/workflows", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
+      const response = await fetch(
+        `/api/inbox/${selected.id}/commerce`,
+        {
+          method: "POST",
         },
-        body: JSON.stringify({
-          sourceMessageId: selected.id,
-          service: "External agent service",
-          recipient: "service.example",
-          amount: "10.00",
-          currency: "USDC",
-          purpose: selected.subject,
-        }),
-      });
+      );
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error);
+        throw new Error(
+          data.error ??
+          data.status ??
+          "Unable to create commerce request.",
+        );
       }
 
-      setWorkflow(data);
-      setNotice("Commerce request created. Human approval required.");
+      setWorkflow(data.workflow);
+      setNotice(
+        "Commerce request created. Human approval required.",
+      );
     } catch (error) {
       setNotice(
         error instanceof Error
           ? error.message
-          : "Unable to create request.",
+          : "Unable to create commerce request.",
       );
     } finally {
       setCreating(false);
@@ -546,6 +544,127 @@ export default function Home() {
                           </strong>
                         </div>
                       </div>
+
+                      {workflow.status === "DETAILS_REQUIRED" && (
+                        <div className="approval">
+                          <div className="approval-header">
+                            <div>
+                              <p className="eyebrow">
+                                PAYMENT DETAILS REQUIRED
+                              </p>
+
+                              <h3>
+                                Confirm payment destination
+                              </h3>
+                            </div>
+
+                            <span className="approval-lock">
+                              🔒
+                            </span>
+                          </div>
+
+                          <div className="approval-grid">
+                            <div>
+                              <span>Service</span>
+                              <strong>
+                                {workflow.request.service}
+                              </strong>
+                            </div>
+
+                            <div>
+                              <span>Amount</span>
+                              <strong>
+                                {workflow.request.amount}{" "}
+                                {workflow.request.currency}
+                              </strong>
+                            </div>
+
+                            <div>
+                              <span>Purpose</span>
+                              <strong>
+                                {workflow.request.purpose}
+                              </strong>
+                            </div>
+                          </div>
+
+                          <p>
+                            The email did not provide a trusted payment
+                            destination. No recipient has been inferred
+                            from the message.
+                          </p>
+
+                          <input
+                            type="text"
+                            placeholder="Enter payment recipient"
+                            id="payment-recipient"
+                          />
+
+                          <button
+                            className="primary"
+                            onClick={async () => {
+                              const input =
+                                document.getElementById(
+                                  "payment-recipient",
+                                ) as HTMLInputElement | null;
+
+                              const recipient =
+                                input?.value.trim();
+
+                              if (!recipient) {
+                                setNotice(
+                                  "Payment recipient is required.",
+                                );
+                                return;
+                              }
+
+                              setCreating(true);
+                              setNotice("");
+
+                              try {
+                                const response = await fetch(
+                                  `/api/workflows/${workflow.request.id}/details`,
+                                  {
+                                    method: "POST",
+                                    headers: {
+                                      "Content-Type": "application/json",
+                                    },
+                                    body: JSON.stringify({
+                                      recipient,
+                                    }),
+                                  },
+                                );
+
+                                const data = await response.json();
+
+                                if (!response.ok) {
+                                  throw new Error(
+                                    data.error ??
+                                    "Unable to save payment details.",
+                                  );
+                                }
+
+                                setWorkflow(data);
+                                setNotice(
+                                  "Payment destination recorded. Human approval required.",
+                                );
+                              } catch (error) {
+                                setNotice(
+                                  error instanceof Error
+                                    ? error.message
+                                    : "Unable to save payment details.",
+                                );
+                              } finally {
+                                setCreating(false);
+                              }
+                            }}
+                            disabled={creating}
+                          >
+                            {creating
+                              ? "Saving..."
+                              : "Confirm Payment Destination"}
+                          </button>
+                        </div>
+                      )}
 
                       {workflow.status ===
                         "APPROVAL_REQUIRED" && (

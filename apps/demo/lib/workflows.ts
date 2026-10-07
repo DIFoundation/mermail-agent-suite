@@ -73,7 +73,7 @@ export function createWorkflow(input: {
     id,
     sourceMessageId: input.sourceMessageId,
     service: input.service,
-    recipient: input.recipient,
+    recipient: input.recipient || undefined,
     amount: input.amount,
     currency: input.currency,
     purpose,
@@ -87,6 +87,17 @@ export function createWorkflow(input: {
 
   if (!result.ok) {
     throw new Error(result.error);
+  }
+
+  /*
+   * We cannot create a quote until the payment destination
+   * is explicitly supplied.
+   */
+  if (result.workflow.status === "DETAILS_REQUIRED") {
+    workflows.set(id, result.workflow);
+    saveWorkflowToDisk(result.workflow);
+
+    return result.workflow;
   }
 
   const quoted = attachQuote(result.workflow, {

@@ -2,6 +2,7 @@ import type { SentinelResult } from "../index";
 
 export type CommerceStatus =
   | "REQUESTED"
+  | "DETAILS_REQUIRED"
   | "CLEARED"
   | "QUOTED"
   | "APPROVAL_REQUIRED"
@@ -15,7 +16,7 @@ export type CommerceStatus =
 export interface CommerceRequest {
   id: string;
   service: string;
-  recipient: string;
+  recipient?: string;
   amount: string;
   currency: string;
   purpose: string;
@@ -77,7 +78,6 @@ function update(
 function hasRequiredRequestFields(request: CommerceRequest) {
   return Boolean(
     request.service &&
-      request.recipient &&
       request.amount &&
       request.currency &&
       request.purpose &&
@@ -138,6 +138,13 @@ export function createCommerceWorkflow(
           "Commerce cannot proceed because Sentinel did not return CLEAR.",
       }),
       error: "Sentinel clearance required.",
+    };
+  }
+
+  if (!request.recipient) {
+    return {
+      ok: true,
+      workflow: update(workflow, "DETAILS_REQUIRED"),
     };
   }
 

@@ -62,10 +62,12 @@ export async function POST(
     const workflow = createWorkflow({
       sourceMessageId: message.id,
       service: extraction.service!,
-      recipient: extraction.recipient!,
+      recipient: extraction.recipient ?? "",
       amount: extraction.amount!,
       currency: extraction.currency!,
-      purpose: extraction.purpose,
+      purpose:
+        extraction.purpose ??
+        (extraction.isX402 ? "x402 API payment" : "payment"),
       sentinel,
       network: "demo",
       isX402: extraction.isX402,
@@ -74,7 +76,7 @@ export async function POST(
 
     return Response.json(
       {
-        status: "APPROVAL_REQUIRED",
+        status: workflow.status,
         sourceMessageId: message.id,
         sentinel,
         extraction,

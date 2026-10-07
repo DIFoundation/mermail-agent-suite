@@ -23,10 +23,10 @@ export interface ExtractedCommerceRequest {
   x402Url?: string;
   // For x402, the URL itself can serve as the "recipient" (the paid endpoint)
   x402Endpoint?: string;
+  requiresPaymentDetails?: boolean;
 }
 
-const CURRENCY_PATTERN =
-  /\b(USDT|USDC|USD|EUR|GBP|NGN|BTC|ETH|SOL|DAI)\b/i;
+const CURRENCY_PATTERN = /\b(USDT|USDC|USD|EUR|GBP|NGN|BTC|ETH|SOL|DAI)\b/i;
 
 const AMOUNT_CURRENCY_PATTERN =
   /\b(?:of\s+)?([0-9]+(?:\.[0-9]+)?)\s*(USDT|USDC|USD|EUR|GBP|NGN|BTC|ETH|SOL|DAI)\b/i;
@@ -111,6 +111,18 @@ function extractService(text: string) {
     if (match?.[1]) {
       return normalizeWhitespace(match[1]);
     }
+  }
+
+  if (/\bsubscription\b/i.test(text)) {
+    return "subscription";
+  }
+
+  if (/\bAPI\b/i.test(text)) {
+    return "API service";
+  }
+
+  if (/\binvoice\b/i.test(text)) {
+    return "invoice";
   }
 
   return undefined;
@@ -201,18 +213,25 @@ export function extractCommerceRequest(input: {
 
   if (!service) missingFields.push("service");
   // For x402, the URL serves as the recipient (the paid endpoint)
-  if (isX402) {
-    if (!x402Url) missingFields.push("recipient");
-  } else {
-    if (!recipient.recipient) missingFields.push("recipient");
+  if (isX402 && !x402Url) {
+    missingFields.push("recipient");
   }
   if (!amount.amount) missingFields.push("amount");
   if (!amount.currency) missingFields.push("currency");
   // Purpose is optional for x402 since the URL endpoint defines the service
   if (!purpose && !isX402) missingFields.push("purpose");
 
+  const hasCoreCommerceFields =
+    Boolean(service) &&
+    Boolean(amount.amount) &&
+    Boolean(amount.currency) &&
+    Boolean(purpose || isX402);
+
+  const requiresPaymentDetails =
+    !isX402 && !recipient.recipient;
+
   return {
-    status: missingFields.length === 0 ? "MATCHED" : "INCOMPLETE",
+    status: hasCoreCommerceFields ? "MATCHED" : "INCOMPLETE",
     service,
     recipient: isX402 ? x402Url : recipient.recipient,
     amount: amount.amount,
@@ -228,5 +247,6 @@ export function extractCommerceRequest(input: {
     isX402,
     x402Url,
     x402Endpoint: x402Url,
+    requiresPaymentDetails,
   };
 }
