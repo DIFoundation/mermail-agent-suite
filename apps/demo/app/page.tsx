@@ -82,6 +82,7 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [approving, setApproving] = useState(false);
+  const [executing, setExecuting] = useState(false);
   const [notice, setNotice] = useState("");
 
   useEffect(() => {
@@ -146,6 +147,62 @@ export default function Home() {
     }
   }
 
+  async function saveDestination() {
+    if (!workflow) return;
+
+    const input =
+      document.getElementById(
+        "payment-recipient",
+      ) as HTMLInputElement | null;
+
+    const recipient = input?.value.trim();
+
+    if (!recipient) {
+      setNotice("Payment recipient is required.");
+      return;
+    }
+
+    setCreating(true);
+    setNotice("");
+
+    try {
+      const response = await fetch(
+        `/api/workflows/${workflow.request.id}/details`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            recipient,
+          }),
+        },
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.error ??
+          "Unable to save payment details.",
+        );
+      }
+
+      setWorkflow(data);
+      setNotice(
+        "Payment destination recorded. Human approval required.",
+      );
+    } catch (error) {
+      setNotice(
+        error instanceof Error
+          ? error.message
+          : "Unable to save payment details.",
+      );
+    } finally {
+      setCreating(false);
+    }
+  }
+
   async function approve() {
     if (!workflow) return;
 
@@ -192,6 +249,7 @@ export default function Home() {
 
   async function executeWorkflow() {
     if (!workflow) return;
+    setExecuting(true);
     setNotice("Executing approved payment...");
 
     setPayment({
@@ -219,6 +277,8 @@ export default function Home() {
       setNotice(data.error ?? "Execution failed");
       return;
     }
+
+    setExecuting(false);
 
     console.log("execute complete:", data);
 
@@ -473,7 +533,7 @@ export default function Home() {
 
               {selected.security.decision === "clear" && (
                 <div className="commerce">
-                  {!workflow || !payment ? (
+                  {!workflow ? (
                     <>
                       <div>
                         <h3>
@@ -601,62 +661,7 @@ export default function Home() {
 
                           <button
                             className="primary"
-                            onClick={async () => {
-                              const input =
-                                document.getElementById(
-                                  "payment-recipient",
-                                ) as HTMLInputElement | null;
-
-                              const recipient =
-                                input?.value.trim();
-
-                              if (!recipient) {
-                                setNotice(
-                                  "Payment recipient is required.",
-                                );
-                                return;
-                              }
-
-                              setCreating(true);
-                              setNotice("");
-
-                              try {
-                                const response = await fetch(
-                                  `/api/workflows/${workflow.request.id}/details`,
-                                  {
-                                    method: "POST",
-                                    headers: {
-                                      "Content-Type": "application/json",
-                                    },
-                                    body: JSON.stringify({
-                                      recipient,
-                                    }),
-                                  },
-                                );
-
-                                const data = await response.json();
-
-                                if (!response.ok) {
-                                  throw new Error(
-                                    data.error ??
-                                    "Unable to save payment details.",
-                                  );
-                                }
-
-                                setWorkflow(data);
-                                setNotice(
-                                  "Payment destination recorded. Human approval required.",
-                                );
-                              } catch (error) {
-                                setNotice(
-                                  error instanceof Error
-                                    ? error.message
-                                    : "Unable to save payment details.",
-                                );
-                              } finally {
-                                setCreating(false);
-                              }
-                            }}
+                            onClick={saveDestination}
                             disabled={creating}
                           >
                             {creating
@@ -702,23 +707,36 @@ export default function Home() {
                               📡 x402 request detected
                             </div>
                           )}
-                          <button
-                            className="primary-action"
-                            onClick={() =>
-                              executeWorkflow()
-                            }
-                          >
-                            {workflow.request.isX402
-                              ? "Execute x402 Payment"
-                              : "Execute Approved Payment"}
-                          </button>
+                          <div className="approval-actions">
+                            <button
+                              className="danger"
+                              onClick={() => {
+                                setWorkflow(null);
+                                setNotice(
+                                  "Execution Cancelled.",
+                                );
+                              }}
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              className="primary-action"
+                              onClick={() =>
+                                executeWorkflow()
+                              }
+                            >
+                              {executing ? "Executing..." : (workflow.request.isX402
+                                ? "Execute x402 Payment"
+                                : "Execute Approved Payment")}
+                            </button>
+                          </div>
                         </div>
                       )}
 
                       {workflow.status === "EXECUTING" && (
                         <div className="executing">
                           ⏳ Payment execution in progress...
-                          {payment.status === "PENDING" && (
+                          {payment?.status === "PENDING" && (
                             <div className="pending-info">
                               <span>Waiting for signature/approval</span>
                               <button
@@ -756,7 +774,7 @@ export default function Home() {
                         </div>
                       )}
 
-                      {payment.status === "SETTLED" && (
+                      {payment?.status === "SETTLED" && (
                         <div className="approved-state">
                           <strong>Payment completed. </strong>
                           <span>

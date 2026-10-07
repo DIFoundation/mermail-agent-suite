@@ -119,21 +119,13 @@ export class MermailPaymentExecutor implements PaymentExecutor {
 
     try {
       await client.connect(transport);
-
-      const response = await fetch(
-        `/api/mermail/oauth/pabox`,
-        {
-          method: "GET",
-        },
-      );
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error);
-      }
-
-      if (data.result.status !== "ACTIVE") {
+      
+      const payboxStatus = await client.callTool({
+        name: "get_paybox_connection",
+        arguments: {}
+      });
+            
+      if ((payboxStatus.structuredContent as any).status !== "ACTIVE") {
         throw new Error("PayBox is not active or not connected");
       }
 

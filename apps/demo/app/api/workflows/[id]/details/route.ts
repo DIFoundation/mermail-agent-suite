@@ -51,6 +51,7 @@ export async function POST(
         ...workflow.request,
         recipient,
       },
+      status: "CLEARED",
       updatedAt: new Date().toISOString(),
     };
 

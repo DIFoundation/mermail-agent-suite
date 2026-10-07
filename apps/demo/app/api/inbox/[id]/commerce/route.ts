@@ -1,14 +1,18 @@
 import {
   analyzeMessage,
+  auditStore,
   extractCommerceRequest,
 } from "@mermail-agent-suite/core";
 import { mermailInboxProvider } from "../../../../../lib/mermail/inbox-provider";
 import { createWorkflow } from "../../../../../lib/workflows";
+import { initializeAuditPersistence } from "../../../../../lib/audit-persistence";
 
 export async function POST(
   _request: Request,
   context: { params: Promise<{ id: string }> },
 ) {
+  initializeAuditPersistence();
+
   const { id } = await context.params;
 
   try {
@@ -73,6 +77,21 @@ export async function POST(
       isX402: extraction.isX402,
       x402Url: extraction.x402Url,
     });
+
+    auditStore.createEvent(
+      "workflow_created",
+      workflow.request.id,
+      {
+        sourceMessageId: message.id,
+        service: workflow.request.service,
+        amount: workflow.request.amount,
+        currency: workflow.request.currency,
+        purpose: workflow.request.purpose,
+        recipientProvided: Boolean(workflow.request.recipient),
+        status: workflow.status,
+        isX402: Boolean(workflow.request.isX402),
+      },
+    );
 
     return Response.json(
       {

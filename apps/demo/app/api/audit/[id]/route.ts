@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { auditStore } from "@mermail-agent-suite/core";
+import { initializeAuditPersistence } from "../../../../lib/audit-persistence";
 
 export async function GET(
   request: Request,
@@ -7,6 +8,8 @@ export async function GET(
     params: Promise<{ id: string }>;
   },
 ) {
+  initializeAuditPersistence();
+
   const { id } = await context.params;
 
   const record = auditStore.getRecord(id);

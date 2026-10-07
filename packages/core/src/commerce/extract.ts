@@ -31,6 +31,9 @@ const CURRENCY_PATTERN = /\b(USDT|USDC|USD|EUR|GBP|NGN|BTC|ETH|SOL|DAI)\b/i;
 const AMOUNT_CURRENCY_PATTERN =
   /\b(?:of\s+)?([0-9]+(?:\.[0-9]+)?)\s*(USDT|USDC|USD|EUR|GBP|NGN|BTC|ETH|SOL|DAI)\b/i;
 
+const SYMBOL_AMOUNT_PATTERN =
+  /([$€£₦])\s*([0-9]+(?:\.[0-9]+)?)/;
+
 const CURRENCY_AMOUNT_PATTERN =
   /\b(USDT|USDC|USD|EUR|GBP|NGN|BTC|ETH|SOL|DAI)\s*([0-9]+(?:\.[0-9]+)?)\b/i;
 
@@ -70,6 +73,23 @@ function extractAmountAndCurrency(text: string) {
       amount: currencyFirst[2],
       currency: currencyFirst[1].toUpperCase(),
       evidence: currencyFirst[0],
+    };
+  }
+
+  const symbolAmount = text.match(SYMBOL_AMOUNT_PATTERN);
+
+  if (symbolAmount) {
+    const currencyMap: Record<string, string> = {
+      "$": "USD",
+      "€": "EUR",
+      "£": "GBP",
+      "₦": "NGN",
+    };
+
+    return {
+      amount: symbolAmount[2],
+      currency: currencyMap[symbolAmount[1]],
+      evidence: symbolAmount[0],
     };
   }
 

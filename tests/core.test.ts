@@ -762,3 +762,52 @@ describe("Commerce Bridge workflow", () => {
     );
   });
 });
+
+describe("Commerce extraction", () => {
+  it("extracts dollar-denominated subscription payments without a recipient", async () => {
+    const { extractCommerceRequest } =
+      await import("../packages/core/src/commerce/extract");
+
+    const result = extractCommerceRequest({
+      subject: "API subscription",
+      body:
+        "Your subscription is due and you need to renew your subscription before 30th of this month. You need to pay a total of $53.98.",
+    });
+
+    expect(result.status).toBe("MATCHED");
+    expect(result.service).toBe("subscription");
+    expect(result.amount).toBe("53.98");
+    expect(result.currency).toBe("USD");
+    expect(result.purpose).toBe("subscription payment");
+    expect(result.recipient).toBeUndefined();
+    expect(result.requiresPaymentDetails).toBe(true);
+  });
+
+  it("extracts NGN symbol amounts", async () => {
+    const { extractCommerceRequest } =
+      await import("../packages/core/src/commerce/extract");
+
+    const result = extractCommerceRequest({
+      subject: "Subscription payment",
+      body: "Please pay the subscription fee of ₦5000.",
+    });
+
+    expect(result.status).toBe("MATCHED");
+    expect(result.amount).toBe("5000");
+    expect(result.currency).toBe("NGN");
+  });
+
+  it("extracts EUR symbol amounts", async () => {
+    const { extractCommerceRequest } =
+      await import("../packages/core/src/commerce/extract");
+
+    const result = extractCommerceRequest({
+      subject: "Subscription payment",
+      body: "Please pay €25 for the subscription.",
+    });
+
+    expect(result.status).toBe("MATCHED");
+    expect(result.amount).toBe("25");
+    expect(result.currency).toBe("EUR");
+  });
+});

@@ -137,7 +137,7 @@ export async function POST(
 
     const result = await paymentExecutor.execute({
       workflowId: executionStarted.workflow.id,
-      recipient: executionStarted.workflow.request.recipient,
+      recipient: executionStarted.workflow.request.recipient ?? "",
       amount: executionStarted.workflow.request.amount,
       currency: executionStarted.workflow.request.currency,
       purpose: executionStarted.workflow.request.purpose,

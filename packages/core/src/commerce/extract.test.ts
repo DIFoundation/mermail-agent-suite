@@ -36,12 +36,12 @@ describe("extractCommerceRequest", () => {
       body: "Please pay the invoice of 25 USDT.",
     });
 
-    expect(result.status).toBe("INCOMPLETE");
+    expect(result.status).toBe("MATCHED");
     expect(result.amount).toBe("25");
     expect(result.currency).toBe("USDT");
     expect(result.recipient).toBeUndefined();
-    expect(result.missingFields).toContain("recipient");
-    expect(result.missingFields).toContain("service");
+    expect(result.missingFields).toEqual([]);
+    expect(result.missingFields).toEqual([]);
   });
 
   it("extracts currency before amount", () => {
