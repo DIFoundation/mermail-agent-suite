@@ -4,6 +4,7 @@ import {
   beginExecution,
   completeExecution,
   failExecution,
+  markSubmissionUnknown,
 } from "@mermail-agent-suite/core";
 import { getWorkflow, saveWorkflow } from "../../../../../lib/workflows";
 import { MermailPaymentExecutor } from "../../../../../lib/mermail-payment-executor";
@@ -196,7 +197,53 @@ export async function POST(
     }
 
     if (result.status === "UNKNOWN") {
-      // Treat unknown as pending but save the executionId
+      const metadata = result.metadata as
+        | {
+            submissionUnknown?: boolean;
+            invocationId?: string;
+            payboxCode?: string;
+            payboxError?: string;
+          }
+        | undefined;
+
+      if (metadata?.submissionUnknown) {
+        const unknown = markSubmissionUnknown(
+          executionStarted.workflow,
+          "PayBox submission outcome is unknown. Reconciliation is required before any retry.",
+        );
+
+        if (!unknown.ok) {
+          return NextResponse.json(
+            { error: unknown.error },
+            { status: 500 },
+          );
+        }
+
+        const unknownWorkflow = saveWorkflow({
+          ...unknown.workflow,
+          executionId: metadata.invocationId ?? undefined,
+          updatedAt: new Date().toISOString(),
+        });
+
+        auditStore.createEvent(
+          "payment_submission_unknown",
+          unknownWorkflow.id,
+          {
+            invocationId: metadata.invocationId,
+            provider: result.provider,
+            reason: metadata.payboxError,
+            code: metadata.payboxCode,
+          },
+        );
+
+        return NextResponse.json({
+          workflow: unknownWorkflow,
+          payment: result,
+          status: "SUBMISSION_UNKNOWN",
+          reconciliationRequired: true,
+        });
+      }
+
       const pendingWorkflow = saveWorkflow({
         ...executionStarted.workflow,
         executionId: result.executionId,
@@ -207,7 +254,6 @@ export async function POST(
         workflow: pendingWorkflow,
         payment: result,
         status: "PENDING",
-        warning: `Unknown PayBox status: ${(result.metadata as any)?.payboxStatus || "unknown"}. Treating as pending.`,
       });
     }
 

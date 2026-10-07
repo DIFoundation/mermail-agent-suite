@@ -288,6 +288,7 @@ export {
   beginX402Execution,
   completeX402Execution,
   continueOriginalRequest,
+  markSubmissionUnknown,
 } from "./commerce/workflow";
 
 export * from "./payment/types";

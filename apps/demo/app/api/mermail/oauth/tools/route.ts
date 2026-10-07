@@ -55,7 +55,11 @@ export async function GET(request: NextRequest) {
         .filter((tool) =>
           tool.name.startsWith("paybox_"),
         )
-        .map((tool) => tool.name),
+        .map((tool) => ({
+          name: tool.name,
+          description: tool.description,
+          inputSchema: tool.inputSchema,
+        })),
       walletTools: result.tools
         .filter((tool) =>
           tool.name.toLowerCase().includes("wallet"),

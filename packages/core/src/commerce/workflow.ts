@@ -8,6 +8,7 @@ export type CommerceStatus =
   | "APPROVAL_REQUIRED"
   | "APPROVED"
   | "EXECUTING"
+  | "SUBMISSION_UNKNOWN"
   | "X402_PENDING"
   | "X402_COMPLETED"
   | "COMPLETED"
@@ -78,10 +79,10 @@ function update(
 function hasRequiredRequestFields(request: CommerceRequest) {
   return Boolean(
     request.service &&
-      request.amount &&
-      request.currency &&
-      request.purpose &&
-      request.sourceMessageId,
+    request.amount &&
+    request.currency &&
+    request.purpose &&
+    request.sourceMessageId,
   );
 }
 
@@ -284,9 +285,7 @@ export function approveCommerce(
   };
 }
 
-export function beginExecution(
-  workflow: CommerceWorkflow,
-): TransitionResult {
+export function beginExecution(workflow: CommerceWorkflow): TransitionResult {
   if (workflow.status !== "APPROVED") {
     return {
       ok: false,
@@ -306,6 +305,26 @@ export function beginExecution(
   return {
     ok: true,
     workflow: update(workflow, "EXECUTING"),
+  };
+}
+
+export function markSubmissionUnknown(
+  workflow: CommerceWorkflow,
+  reason: string,
+): TransitionResult {
+  if (workflow.status !== "EXECUTING") {
+    return {
+      ok: false,
+      workflow,
+      error: "Only an executing workflow can enter submission-unknown state.",
+    };
+  }
+
+  return {
+    ok: true,
+    workflow: update(workflow, "SUBMISSION_UNKNOWN", {
+      failureReason: reason,
+    }),
   };
 }
 
@@ -437,4 +456,3 @@ export function continueOriginalRequest(
     }),
   };
 }
-

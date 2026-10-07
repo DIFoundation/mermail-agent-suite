@@ -65,7 +65,10 @@ export async function POST(
     );
   }
 
-  if (workflow.status !== "EXECUTING") {
+  if (
+    workflow.status !== "EXECUTING" &&
+    workflow.status !== "SUBMISSION_UNKNOWN"
+  ) {
     return NextResponse.json(
       {
         error: "Payment status check requires EXECUTING workflow",

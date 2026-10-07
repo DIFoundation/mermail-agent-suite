@@ -10,6 +10,7 @@ export type AuditEventType =
   | "x402_proof_ready"
   | "x402_completed"
   | "payment_initiated"
+  | "payment_submission_unknown"
   | "payment_settled"
   | "payment_failed";
 

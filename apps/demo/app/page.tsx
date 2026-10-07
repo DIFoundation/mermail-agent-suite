@@ -313,6 +313,60 @@ export default function Home() {
     }
   }
 
+  async function reconcilePayment(workflowId: string) {
+    setNotice("Reconciling PayBox payment...");
+    setExecuting(true);
+
+    try {
+      const response = await fetch(
+        `/api/workflows/${workflowId}/check-payment`,
+        {
+          method: "POST",
+        },
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setNotice(
+          data.error ?? "Payment reconciliation failed.",
+        );
+        return;
+      }
+
+      setWorkflow(data.workflow);
+
+      if (data.status === "COMPLETED") {
+        setNotice("Payment settlement confirmed.");
+        return;
+      }
+
+      if (data.status === "PENDING") {
+        setNotice("PayBox confirms the payment is still pending.");
+        return;
+      }
+
+      if (data.status === "FAILED") {
+        setNotice(
+          `PayBox confirmed payment failure: ${data.workflow.failureReason
+          }`,
+        );
+        return;
+      }
+
+      if (data.status === "SUBMISSION_UNKNOWN") {
+        setNotice(
+          "PayBox still cannot establish the submission outcome. Do not retry.",
+        );
+        return;
+      }
+
+      setNotice("Payment reconciliation requires further review.");
+    } finally {
+      setExecuting(false);
+    }
+  }
+
   async function pollPaymentStatus(workflowId: string) {
     const pollInterval = 3000; // 3 seconds
     const maxAttempts = 60; // 3 minutes total
@@ -747,6 +801,26 @@ export default function Home() {
                               </button>
                             </div>
                           )}
+                        </div>
+                      )}
+
+                      {workflow.status === "SUBMISSION_UNKNOWN" && (
+                        <div className="failed">
+                          ⚠️ Payment submission outcome is unknown.
+                          <br />
+                          Do not retry the payment until the existing PayBox
+                          submission has been reconciled.
+
+                          <div className="approval-actions">
+                            <button
+                              className="secondary"
+                              onClick={() =>
+                                reconcilePayment(workflow.request.id)
+                              }
+                            >
+                              Reconcile Payment
+                            </button>
+                          </div>
                         </div>
                       )}
 

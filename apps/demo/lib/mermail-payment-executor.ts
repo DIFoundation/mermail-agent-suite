@@ -32,6 +32,15 @@ interface PayBoxRequestResult {
   [key: string]: unknown;
 }
 
+interface PayBoxError {
+  error?: string;
+  code?: string;
+  invocationId?: string;
+  request_id?: string;
+  requestId?: string;
+  [key: string]: unknown;
+}
+
 function extractToolResult(result: MermailToolResult): unknown {
   if (result.structuredContent !== undefined) {
     return result.structuredContent;
@@ -89,6 +98,19 @@ function requireExecutionConfig(request: PaymentExecutionRequest) {
   }
 }
 
+function isPayBoxUncertainError(value: unknown): value is PayBoxError {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const error = value as PayBoxError;
+
+  return (
+    error.code === "paybox_upstream_uncertain" ||
+    error.error === "paybox_upstream_uncertain"
+  );
+}
+
 export class MermailPaymentExecutor implements PaymentExecutor {
   constructor(private readonly sessionId: string) {}
 
@@ -143,6 +165,29 @@ export class MermailPaymentExecutor implements PaymentExecutor {
       const output = extractToolResult(result);
 
       if (result.isError === true) {
+        if (isPayBoxUncertainError(output)) {
+          const invocationId =
+            typeof output.invocationId === "string"
+              ? output.invocationId
+              : undefined;
+
+          return {
+            executionId: invocationId ?? "",
+            status: "UNKNOWN",
+            provider: "mermail-paybox",
+            metadata: {
+              payboxError: output.error,
+              payboxCode: output.code,
+              invocationId,
+              submissionUnknown: true,
+              atomicAmount,
+              chain: request.chain,
+              credentialId: request.credentialId,
+              token: request.token ?? null,
+            },
+          };
+        }
+
         throw new Error(
           `Mermail PayBox rejected the transfer request: ${JSON.stringify(output)}`,
         );
