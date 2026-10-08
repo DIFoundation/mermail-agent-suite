@@ -10,8 +10,11 @@
   "dependencies": {
     "@mermail-agent-suite/core": "workspace:*",
     "@modelcontextprotocol/client": "^2.3.0",
-    "next": "15.5.4",
-    "react": "19.1.1",
-    "react-dom": "19.1.1"
+    "@next/codemod": "16.5.0-canary.2",
+    "latest": "^0.2.0",
+    "next": "16.4.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "upgrade": "^1.1.0"
   }
 }

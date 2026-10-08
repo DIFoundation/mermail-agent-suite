@@ -629,6 +629,22 @@ h3 {
   word-break: break-word;
 }
 
+.address-input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #292a30;
+  border-radius: 8px;
+  background: #0d0e12;
+  color: #f4f4f5;
+  font-size: 14px;
+}
+
+.input {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 @media (max-width: 600px) {
   .approval-grid {
     grid-template-columns: 1fr;

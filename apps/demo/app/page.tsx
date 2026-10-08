@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
 type Decision = "clear" | "review" | "block";
 
@@ -74,6 +75,7 @@ function Badge({ decision }: { decision: Decision }) {
 }
 
 export default function Home() {
+  const router = useRouter();
   const [messages, setMessages] = useState<Message[]>([]);
   const [selected, setSelected] = useState<Message | null>(null);
   const [workflow, setWorkflow] = useState<Workflow | null>(null);
@@ -477,7 +479,17 @@ export default function Home() {
       <section className="workspace">
         <aside className="inbox">
           <div className="section-title">
-            <span>INBOX</span>
+            <div>
+              <span>INBOX </span>
+              <span
+                onClick={() => {
+                  router.refresh()
+                }}
+                style={{ cursor: "pointer" }}
+              >
+                refreash
+              </span>
+            </div>
             <span>{messages.length}</span>
           </div>
 
@@ -707,21 +719,24 @@ export default function Home() {
                             from the message.
                           </p>
 
-                          <input
-                            type="text"
-                            placeholder="Enter payment recipient"
-                            id="payment-recipient"
-                          />
+                          <div className="input">
+                            <input
+                              type="text"
+                              placeholder="Enter payment recipient"
+                              className="address-input"
+                              id="payment-recipient"
+                            />
 
-                          <button
-                            className="primary"
-                            onClick={saveDestination}
-                            disabled={creating}
-                          >
-                            {creating
-                              ? "Saving..."
-                              : "Confirm Payment Destination"}
-                          </button>
+                            <button
+                              className="primary"
+                              onClick={saveDestination}
+                              disabled={creating}
+                            >
+                              {creating
+                                ? "Saving..."
+                                : "Confirm Payment Destination"}
+                            </button>
+                          </div>
                         </div>
                       )}
 
